@@ -161,51 +161,62 @@ export function useGovernanceData(
       const proposals = await Promise.all(proposalPromises)
 
       // Fetch proposal descriptions from ProposalCreated events.
-      // Cached in localStorage to avoid re-scanning the full block range on every poll.
+      //
+      // The description string is event-only data — it is emitted in ProposalCreated
+      // and never stored on chain — so it can only be recovered from logs. Rather
+      // than scan from the deploy block to the chain tip (an O(chain-age) walk that
+      // grows without bound), we anchor each query to the proposal's own creation
+      // block: ArmadaGovernor sets snapshotBlock = block.number - 1 in the same tx
+      // that emits ProposalCreated, so the event sits at exactly snapshotBlock + 1.
+      // A 3-block window filtered by the indexed proposalId pins each description in
+      // one tiny getLogs, independent of how old the chain is.
+      //
+      // Descriptions are immutable once emitted, so we cache them permanently by
+      // proposalId (namespaced by chainId + governor address). A warm cache makes
+      // zero log queries; a cold cache makes at most one tiny query per displayed
+      // proposal, all issued in parallel.
       try {
-        // Namespace cache by chainId + governor address to avoid cross-environment contamination
         const govAddr = deployment.contracts.governor.toLowerCase()
-        const cacheKey = `gov-proposal-descriptions-${deployment.chainId}-${govAddr}`
-        const cached = JSON.parse(localStorage.getItem(cacheKey) || '{}') as {
-          lastBlock?: number
-          descriptions?: Record<string, string>
-        }
-        const descriptionMap = new Map<number, string>(
-          Object.entries(cached.descriptions ?? {}).map(([k, v]) => [Number(k), v]),
-        )
-        const deployBlock = deployment.deployBlock ?? 0
-        const currentBlock = await provider.getBlockNumber()
-        // If cached lastBlock is ahead of the current chain tip, invalidate the cache
-        const cachedLastBlock = cached.lastBlock ?? deployBlock - 1
-        const scanFrom = cachedLastBlock > currentBlock
-          ? deployBlock
-          : Math.max(deployBlock, cachedLastBlock + 1)
+        // v2: flat { [proposalId]: description } map, replacing the old
+        // { lastBlock, descriptions } full-scan cache format.
+        const cacheKey = `gov-proposal-descriptions-v2-${deployment.chainId}-${govAddr}`
+        const cached = JSON.parse(localStorage.getItem(cacheKey) || '{}') as Record<string, string>
 
-        if (scanFrom <= currentBlock) {
-          const CHUNK = 10 // free-tier RPC limit
-          for (let from = scanFrom; from <= currentBlock; from += CHUNK) {
-            const to = Math.min(from + CHUNK - 1, currentBlock)
-            const chunk = await governor.queryFilter(
-              governor.filters.ProposalCreated(), from, to,
-            )
-            for (const event of chunk) {
-              const parsed = governor.interface.parseLog({
-                topics: [...event.topics],
-                data: event.data,
-              })
-              if (parsed) {
-                descriptionMap.set(Number(parsed.args[0]), parsed.args[5] as string)
+        const missing = proposals.filter(
+          (p) => !cached[String(p.id)] && p.snapshotBlock > 0n,
+        )
+
+        if (missing.length > 0) {
+          const fetched = await Promise.all(
+            missing.map(async (p) => {
+              // ProposalCreated is emitted at snapshotBlock + 1; the small margin
+              // absorbs any future clock tweak without materially widening the scan.
+              const from = Number(p.snapshotBlock)
+              const to = from + 2
+              try {
+                const events = await governor.queryFilter(
+                  governor.filters.ProposalCreated(p.id), from, to,
+                )
+                const event = events[0]
+                if (!event) return null
+                const parsed = governor.interface.parseLog({
+                  topics: [...event.topics],
+                  data: event.data,
+                })
+                return parsed ? { id: p.id, description: parsed.args[5] as string } : null
+              } catch {
+                return null
               }
-            }
+            }),
+          )
+          for (const entry of fetched) {
+            if (entry) cached[String(entry.id)] = entry.description
           }
-          // Persist cache
-          const descObj: Record<string, string> = {}
-          for (const [k, v] of descriptionMap) descObj[String(k)] = v
-          localStorage.setItem(cacheKey, JSON.stringify({ lastBlock: currentBlock, descriptions: descObj }))
+          localStorage.setItem(cacheKey, JSON.stringify(cached))
         }
 
         for (const p of proposals) {
-          const desc = descriptionMap.get(p.id)
+          const desc = cached[String(p.id)]
           if (desc) p.description = desc
         }
       } catch {
