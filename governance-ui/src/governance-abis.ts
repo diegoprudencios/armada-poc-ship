@@ -37,6 +37,7 @@ export const GOVERNOR_ABI = [
   'function getProposal(uint256 proposalId) view returns (address proposer, uint8 proposalType, uint256 voteStart, uint256 voteEnd, uint256 forVotes, uint256 againstVotes, uint256 abstainVotes, uint256 snapshotBlock, uint256 snapshotEligibleSupply)',
   'function getProposalActions(uint256 proposalId) view returns (address[] targets, uint256[] values, bytes[] calldatas)',
   'function quorum(uint256 proposalId) view returns (uint256)',
+  'function QUORUM_FLOOR() view returns (uint256)',
   'function proposalThreshold() view returns (uint256)',
   'function hasVoted(uint256 proposalId, address voter) view returns (bool)',
   'function voteChoice(uint256 proposalId, address voter) view returns (uint8)',

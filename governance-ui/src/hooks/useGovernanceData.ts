@@ -17,6 +17,11 @@ export interface GovernanceData {
   totalSupply: bigint
   proposalThreshold: bigint
   eligibleSupply: bigint
+  // Absolute quorum floor (QUORUM_FLOOR constant). Actual per-proposal quorum is
+  // max(eligibleSupply * quorumBps, quorumFloor); this value is deployment-specific
+  // (a compile-time constant baked into the impl), so it is read from the contract
+  // rather than assumed.
+  quorumFloor: bigint
 
   // Proposals
   proposalCount: number
@@ -66,6 +71,7 @@ const EMPTY_DATA: GovernanceData = {
   totalSupply: 0n,
   proposalThreshold: 0n,
   eligibleSupply: 0n,
+  quorumFloor: 0n,
   proposalCount: 0,
   proposals: [],
   treasuryArmBalance: 0n,
@@ -112,11 +118,14 @@ export function useGovernanceData(
       const blockTimestamp = BigInt(block?.timestamp ?? 0)
       const blockNumber = BigInt(block?.number ?? 0)
 
-      // Fetch basic token data
-      const [totalSupply, proposalThreshold, proposalCountRaw] = await Promise.all([
+      // Fetch basic token data. QUORUM_FLOOR is a compile-time constant, but reading
+      // it from the contract keeps the UI correct across deployments (e.g. the mini
+      // test instance uses a far lower floor than production).
+      const [totalSupply, proposalThreshold, proposalCountRaw, quorumFloor] = await Promise.all([
         armToken.totalSupply(),
         governor.proposalThreshold(),
         governor.proposalCount(),
+        governor.QUORUM_FLOOR().catch(() => 0n),
       ])
       const proposalCount = Number(proposalCountRaw)
 
@@ -352,6 +361,7 @@ export function useGovernanceData(
         totalSupply,
         proposalThreshold,
         eligibleSupply,
+        quorumFloor,
         proposalCount,
         proposals,
         treasuryArmBalance,

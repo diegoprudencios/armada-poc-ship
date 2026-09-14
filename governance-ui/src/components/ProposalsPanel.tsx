@@ -39,9 +39,17 @@ export function ProposalsPanel({ contracts, wallet, govData }: ProposalsPanelPro
     return num.toLocaleString('en-US', { maximumFractionDigits: 0 })
   }
 
+  // Quorum = max(eligibleSupply * quorumBps, QUORUM_FLOOR). The absolute floor
+  // dominates when circulating supply is small (as on the mini test instance), so
+  // showing only the percentage would understate the real requirement.
   const eligible = govData.eligibleSupply
-  const quorum20 = (eligible * 2000n) / 10000n
-  const quorum30 = (eligible * 3000n) / 10000n
+  const floor = govData.quorumFloor
+  const pct20 = (eligible * 2000n) / 10000n
+  const pct30 = (eligible * 3000n) / 10000n
+  const quorum20 = pct20 > floor ? pct20 : floor
+  const quorum30 = pct30 > floor ? pct30 : floor
+  const floorDominates20 = floor >= pct20
+  const floorDominates30 = floor >= pct30
 
   return (
     <div className="space-y-4">
@@ -57,11 +65,15 @@ export function ProposalsPanel({ contracts, wallet, govData }: ProposalsPanelPro
             <p className="mt-0.5 font-mono text-neutral-200">{fmtArm(eligible)} ARM</p>
           </div>
           <div>
-            <p className="text-neutral-500">Standard Quorum (20%)</p>
+            <p className="text-neutral-500">
+              Standard Quorum (20%){floorDominates20 && <span className="text-neutral-600"> · floor</span>}
+            </p>
             <p className="mt-0.5 font-mono text-neutral-200">{fmtArm(quorum20)} ARM</p>
           </div>
           <div>
-            <p className="text-neutral-500">Extended Quorum (30%)</p>
+            <p className="text-neutral-500">
+              Extended Quorum (30%){floorDominates30 && <span className="text-neutral-600"> · floor</span>}
+            </p>
             <p className="mt-0.5 font-mono text-neutral-200">{fmtArm(quorum30)} ARM</p>
           </div>
         </div>
