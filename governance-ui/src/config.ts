@@ -4,6 +4,9 @@
 export type NetworkMode = 'local' | 'sepolia'
 
 const VITE_NETWORK = import.meta.env.VITE_NETWORK as string | undefined
+const VITE_DEPLOYMENT_INSTANCE = import.meta.env.VITE_DEPLOYMENT_INSTANCE as
+  | string
+  | undefined
 
 export function getNetworkMode(): NetworkMode {
   if (VITE_NETWORK === 'sepolia') return 'sepolia'
@@ -12,6 +15,17 @@ export function getNetworkMode(): NetworkMode {
 
 export function isSepoliaMode(): boolean {
   return getNetworkMode() === 'sepolia'
+}
+
+/**
+ * Named deployment instance (e.g. 'mini1') from armada-deployments, if any.
+ * Only meaningful in sepolia mode; ignored on local. Returns undefined when unset
+ * or blank, in which case the legacy root manifest path is used.
+ */
+export function getDeploymentInstance(): string | undefined {
+  if (!isSepoliaMode()) return undefined
+  const instance = VITE_DEPLOYMENT_INSTANCE?.trim()
+  return instance ? instance : undefined
 }
 
 export function getHubRpcUrl(): string {
@@ -76,14 +90,31 @@ export interface HubDeployment {
 }
 
 /**
+ * Path (relative to the deployment-manifest middleware) of the governance manifest
+ * to load for the current network.
+ *
+ * Local → `governance-hub.json`.
+ * Sepolia + `VITE_DEPLOYMENT_INSTANCE=<name>` → mirrored path under
+ *   `instances/<name>/sepolia/governance.json`, populated by
+ *   `npm run fetch-deployment` (dev) or the Netlify build (prod) from the
+ *   armada-deployments repo.
+ * Sepolia, no instance → legacy `governance-hub-sepolia.json`.
+ */
+export function getGovernanceManifestPath(): string {
+  const instance = getDeploymentInstance()
+  if (instance) return `instances/${instance}/sepolia/governance.json`
+  return `${getDeploymentFileName('governance-hub')}.json`
+}
+
+/**
  * Fetch the governance deployment manifest for the current network.
  */
 export async function fetchGovernanceDeployment(): Promise<GovernanceDeployment> {
-  const fileName = getDeploymentFileName('governance-hub')
-  const res = await fetch(`/api/deployments/${fileName}.json`)
+  const path = getGovernanceManifestPath()
+  const res = await fetch(`/api/deployments/${path}`)
   if (!res.ok) {
     throw new Error(
-      `Failed to load governance deployment (${fileName}.json). ` +
+      `Failed to load governance deployment (${path}). ` +
       'Make sure contracts are deployed: npm run setup'
     )
   }
@@ -108,6 +139,13 @@ export async function fetchFaucetAddress(): Promise<string> {
 
 /**
  * Fetch the hub CCTP deployment manifest.
+ *
+ * TODO: Named instances (e.g. mini1) ship only governance.json + crowdfund.json —
+ * they carry no hub manifest — so USDC always resolves from the shared root
+ * `hub-sepolia-v3.json`. That is fine today (all Sepolia instances use the same
+ * Circle testnet USDC), and USDC is only used for a treasury balance readout, but
+ * if an instance ever pins a different USDC this would need an instance-scoped hub
+ * manifest.
  */
 async function fetchHubDeployment(): Promise<Record<string, any>> {
   const fileName = getDeploymentFileName('hub-v3')

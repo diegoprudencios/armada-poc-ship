@@ -1,0 +1,85 @@
+# Netlify build config — standalone governance UI deploy.
+#
+# This app is NOT in the npm workspaces and has its own package.json, so a Netlify
+# site for it must set its Base directory to `governance-ui` (Netlify then reads
+# THIS file rather than the repo-root committer netlify.toml).
+#
+# Network + instance selection is entirely per-site env (Netlify UI → Site settings
+# → Environment variables); the defaults below reproduce a Sepolia mini1 build, so a
+# site that sets none of the network vars still builds governance-ui against mini1.
+#
+# Per-site env vars:
+#   NETWORK                 armada-deployments top-level folder: "testnet" (default)
+#                           or "mainnet" — which repo folder the manifest is fetched
+#                           from.
+#   VITE_NETWORK            app network mode: "sepolia" (default). Switches chain id,
+#                           hub RPC default, and manifest suffix in config.ts.
+#   DEPLOYMENT_INSTANCE     named armada-deployments instance; defaults to "mini1".
+#                           Re-exported as VITE_DEPLOYMENT_INSTANCE for the runtime so
+#                           config.ts loads instances/<name>/<mode>/governance.json.
+#   DEPLOYMENT_REF          git ref of ship-armada/armada-deployments to fetch the
+#                           manifest from. Pins the fetch to an immutable point so a
+#                           later push to `main` cannot change what ships after review.
+#                           Defaults to "main" (unpinned); set a full commit SHA to pin.
+#   VITE_SEPOLIA_HUB_RPC    dedicated hub RPC URL. Strongly recommended — without it
+#                           the app falls back to a rate-limited public node.
+
+[build]
+  base    = "governance-ui"
+  publish = "dist"
+  # Build flow (all network selection comes from per-site env — see header):
+  #   1. Resolve network/instance/ref. Defaults reproduce the Sepolia mini1 build.
+  #   2. Fetch the governance manifest from armada-deployments at
+  #      <NETWORK>/<instance>/<VITE_NETWORK>/governance.json into
+  #      public/api/deployments/instances/<name>/<VITE_NETWORK>/ so the prod build
+  #      serves it under the same path the dev server's serveDeployments() exposes.
+  #   3. Copy the in-repo root hub manifest (hub-<mode>-v3.json) into public so the
+  #      treasury USDC-balance readout resolves. Named instances carry no hub
+  #      manifest of their own — USDC is the shared Circle testnet token (see the
+  #      TODO in src/config.ts fetchHubDeployment).
+  #   4. Build the app (Netlify auto-installs deps in the base dir first).
+  command = """
+    NETWORK="${NETWORK:-testnet}" && \
+    export VITE_NETWORK="${VITE_NETWORK:-sepolia}" && \
+    INSTANCE="${DEPLOYMENT_INSTANCE:-mini1}" && \
+    export VITE_DEPLOYMENT_INSTANCE="${INSTANCE}" && \
+    REF="${DEPLOYMENT_REF:-main}" && \
+    BASE="https://raw.githubusercontent.com/ship-armada/armada-deployments/${REF}/${NETWORK}/${INSTANCE}" && \
+    echo "Fetching ${NETWORK}/${INSTANCE}@${REF} governance manifest (VITE_NETWORK=${VITE_NETWORK})" && \
+    mkdir -p "public/api/deployments/instances/${INSTANCE}/${VITE_NETWORK}" && \
+    curl -sfL -o "public/api/deployments/instances/${INSTANCE}/${VITE_NETWORK}/governance.json" "${BASE}/${VITE_NETWORK}/governance.json" && \
+    cp "../deployments/hub-${VITE_NETWORK}-v3.json" "public/api/deployments/hub-${VITE_NETWORK}-v3.json" && \
+    npm run build
+  """
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# SPA fallback — serve index.html for any path so a deep link / refresh works.
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200
+
+# Security headers. This site publishes only the read-mostly governance dashboard.
+# connect-src lists the Sepolia RPC origins the app talks to (public node default +
+# Alchemy, in case VITE_SEPOLIA_HUB_RPC points there); tighten to your actual RPC
+# origin if you pin one. style-src allows inline styles (Tailwind/injected styles).
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options        = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy        = "no-referrer"
+    Permissions-Policy     = "camera=(), microphone=(), geolocation=()"
+    Content-Security-Policy-Report-Only = """\
+default-src 'self'; \
+script-src 'self'; \
+style-src 'self' 'unsafe-inline'; \
+font-src 'self'; \
+img-src 'self' data: https:; \
+connect-src 'self' https://ethereum-sepolia-rpc.publicnode.com https://eth-sepolia.g.alchemy.com; \
+frame-ancestors 'none'; \
+base-uri 'self'; \
+form-action 'self'; \
+object-src 'none'"""
