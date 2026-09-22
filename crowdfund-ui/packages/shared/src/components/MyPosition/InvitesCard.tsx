@@ -203,6 +203,10 @@ export function InvitesCard({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const timersRef = useRef<number[]>([])
   const shortCardRafRef = useRef(0)
+  // Latest flush handler, read by the panel-deactivation effect so a parent
+  // passing a fresh closure each render doesn't re-trigger the flush.
+  const onFlushPendingRef = useRef(onFlushPending)
+  onFlushPendingRef.current = onFlushPending
   const focusApi = useInviteHopFocus()
   const listId = useId()
   const listBodyId = useId()
@@ -424,9 +428,9 @@ export function InvitesCard({
   useEffect(() => {
     if (!panelActive) {
       resetListAnimation()
-      onFlushPending?.()
+      onFlushPendingRef.current?.()
     }
-  }, [panelActive, resetListAnimation, onFlushPending])
+  }, [panelActive, resetListAnimation])
 
   // Hide entire component when the user has no invite rights at any hop.
   if (allowance && hopRows.length === 0 && !isActionView) {
