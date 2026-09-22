@@ -48,6 +48,7 @@ import { useInviteSlots } from '@/hooks/useInviteSlots'
 import { useBeforeUnloadGuard } from '@/hooks/useBeforeUnloadGuard'
 import { abortPipelinesForOtherAddress, applyWatchedTxResult, pipelinesAtom } from '@/hooks/useTxPipeline'
 import { usePendingTxWatcher } from '@/hooks/usePendingTxWatcher'
+import { localWindowEndUnix } from '@/lib/windowClock'
 import { PageNav, type Page } from '@/appNav'
 
 /**
@@ -368,6 +369,15 @@ export function App() {
     [eventsLoading, summaryArray],
   )
 
+  // Local time at which the current block timestamp was observed. Sampled only
+  // when a new block timestamp arrives, so the Progress live counter (which
+  // ticks on the device clock) stays anchored to chain time between polls.
+  const blockObservedAtMs = useMemo(
+    () => Date.now(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [contractState.blockTimestamp],
+  )
+
   // Cheap scalars + labels recompute on the poll tick, but reuse the stable
   // `dashRows` reference above so no O(N) work runs per tick.
   const crowdfundLiveData = useMemo<CrowdfundExperienceLiveData>(() => {
@@ -391,7 +401,15 @@ export function App() {
       dashRows,
       totalCommitted,
       daysLeftLabel,
-      ...(windowEnd > 0 && liveWindowOpen ? { windowEndUnix: windowEnd } : {}),
+      ...(windowEnd > 0 && liveWindowOpen
+        ? {
+            windowEndUnix: localWindowEndUnix(
+              windowEnd,
+              contractState.blockTimestamp,
+              blockObservedAtMs,
+            ),
+          }
+        : {}),
       daysLeftTooltip,
       saleStatusLabel: saleStatus.label,
       saleStatusDot: saleStatus.dot,
@@ -403,6 +421,7 @@ export function App() {
     contractState.windowEnd,
     contractState.windowStart,
     contractState.blockTimestamp,
+    blockObservedAtMs,
     contractState.phase,
     contractState.armLoaded,
   ])

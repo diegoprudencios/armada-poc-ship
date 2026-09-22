@@ -139,8 +139,10 @@ export type CrowdfundExperienceLiveData =
        *  Omit entirely to fall back to the primitive's mockup default.
        *  Prefer `endsAt` when available so Progress can live-tick under 48h. */
       daysLeftLabel?: string | null
-      /** Absolute commit-window end (unix seconds). When set, Progress owns a
-       *  live HH:MM:SS counter for remaining &lt; 48h. */
+      /** Commit-window end on the device clock (unix seconds) — the chain's
+       *  remaining time anchored to local time, so a skewed device clock
+       *  doesn't desync the counter from chain-time gating. When set, Progress
+       *  owns a live HH:MM:SS counter for remaining &lt; 48h. */
       windowEndUnix?: number
       /** Exact-time detail for the Progress countdown tag's hover tooltip
        *  (e.g. "Ends Jun 14, 2:42 PM"). Omit for no tooltip. */
