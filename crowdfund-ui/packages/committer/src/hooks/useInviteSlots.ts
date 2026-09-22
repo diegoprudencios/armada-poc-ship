@@ -214,10 +214,12 @@ function useHopSection(args: {
     [linkBySlotId, inviteLinks, setLoadingId, guardNetwork],
   )
 
+  // Resolves true only once the invite tx is confirmed. Failures are surfaced
+  // here via toast and resolve false so callers never show a success state.
   const onInviteOnchain = useCallback(
-    async (slotId: number, invitee: string, ensName?: string) => {
-      if (!guardNetwork()) return
-      if (!signer || !crowdfundAddress) return
+    async (slotId: number, invitee: string, ensName?: string): Promise<boolean> => {
+      if (!guardNetwork()) return false
+      if (!signer || !crowdfundAddress) return false
       setLoadingId(slotId)
       try {
         const crowdfund = new Contract(crowdfundAddress, CROWDFUND_ABI_FRAGMENTS, signer)
@@ -231,6 +233,7 @@ function useHopSection(args: {
         }
         await inviteLinks.refreshLinks()
         toast.success(`Invite sent to ${ensName ?? truncateAddress(invitee)}`)
+        return true
       } catch (err) {
         if (isTxTimeoutError(err)) {
           // The invite tx may still confirm — don't claim failure.
@@ -240,6 +243,7 @@ function useHopSection(args: {
           // message, not raw calldata/internal error text.
           toast.error('Invite failed', { description: mapRevertToMessage(err), duration: 10_000 })
         }
+        return false
       } finally {
         setLoadingId((cur) => (cur === slotId ? null : cur))
       }

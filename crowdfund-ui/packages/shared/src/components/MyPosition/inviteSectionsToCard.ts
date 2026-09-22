@@ -12,11 +12,12 @@ export interface InviteSectionLike {
     slots: SlotData[]
     onGenerateLink: (slotId: number) => Promise<void> | Promise<unknown>
     onRevoke: (slotId: number) => void
+    /** Resolves true only once the invite is confirmed on-chain. */
     onInviteOnchain: (
       slotId: number,
       address: string,
       ensName?: string,
-    ) => Promise<void> | Promise<unknown>
+    ) => Promise<boolean>
     isWrongNetwork?: boolean
     onSwitchNetwork?: () => void
   }
@@ -71,4 +72,29 @@ export function sectionForInviteeHop(
 export function firstEmptySlotId(section: InviteSectionLike): number | null {
   const empty = section.config.slots.find((slot) => slot.status === 'empty')
   return empty?.id ?? null
+}
+
+/**
+ * Send an on-chain invite through the section that feeds `inviteeHop`.
+ * Resolves with the created invite only when the section confirms it was sent;
+ * undefined when nothing was sent (wrong network, no empty slot, rejected,
+ * reverted, or still pending) so callers never show a false success.
+ */
+export async function inviteOnchainViaSections(
+  sections: ReadonlyArray<InviteSectionLike>,
+  inviteeHop: InviteeHop,
+  address: string,
+  ensName?: string,
+): Promise<{ id: number; address: string; ensName?: string } | undefined> {
+  const section = sectionForInviteeHop(sections, inviteeHop)
+  if (!section) return undefined
+  if (section.config.isWrongNetwork) {
+    section.config.onSwitchNetwork?.()
+    return undefined
+  }
+  const emptyId = firstEmptySlotId(section)
+  if (emptyId == null) return undefined
+  const sent = await section.config.onInviteOnchain(emptyId, address, ensName)
+  if (!sent) return undefined
+  return { id: emptyId, address, ensName }
 }

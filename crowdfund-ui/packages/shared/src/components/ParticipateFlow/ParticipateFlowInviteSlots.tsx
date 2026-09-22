@@ -25,6 +25,7 @@ import {
 import {
   allowanceFromInviteSections,
   firstEmptySlotId,
+  inviteOnchainViaSections,
   issuedSlotsFromInviteSections,
   sectionForInviteeHop,
 } from '../MyPosition/inviteSectionsToCard'
@@ -142,18 +143,8 @@ export function ParticipateFlowInviteSlots({
   )
 
   const handleInviteOnchain = useCallback(
-    async (hop: InviteeHop, address: string, ensName?: string) => {
-      const section = sectionForInviteeHop(sections, hop)
-      if (!section) return
-      if (section.config.isWrongNetwork) {
-        section.config.onSwitchNetwork?.()
-        return
-      }
-      const emptyId = firstEmptySlotId(section)
-      if (emptyId == null) return
-      await section.config.onInviteOnchain(emptyId, address, ensName)
-      return { id: emptyId, address, ensName }
-    },
+    (hop: InviteeHop, address: string, ensName?: string) =>
+      inviteOnchainViaSections(sections, hop, address, ensName),
     [sections],
   )
 

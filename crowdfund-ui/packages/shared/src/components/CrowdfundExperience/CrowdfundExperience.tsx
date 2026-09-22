@@ -19,6 +19,7 @@ import { InvitesCard } from '../MyPosition/InvitesCard'
 import {
   allowanceFromInviteSections,
   firstEmptySlotId,
+  inviteOnchainViaSections,
   issuedSlotsFromInviteSections,
   sectionForInviteeHop,
 } from '../MyPosition/inviteSectionsToCard'
@@ -75,11 +76,13 @@ export interface CrowdfundInviteSlotConfig {
   >
   onCopy: (slotId: number, link: string) => void
   onRevoke: (slotId: number) => void
+  /** Resolves true only once the invite tx is confirmed; false when it was
+   *  not sent (wrong network, rejected, reverted, or still pending). */
   onInviteOnchain: (
     slotId: number,
     address: string,
     ensName?: string,
-  ) => Promise<void>
+  ) => Promise<boolean>
   /**
    * Real ENS resolver forwarded to each `<SlotCard resolveEns={…} />`. Omit to
    * let SlotCard use its internal mock (showcase / preview only — returns a
@@ -954,18 +957,16 @@ export function CrowdfundExperience({
     setLoadingHop(hop)
     try {
       if (liveSections) {
-        const section = sectionForInviteeHop(liveSections, hop)
-        if (!section) return
-        if (section.config.isWrongNetwork) {
-          section.config.onSwitchNetwork?.()
-          return
-        }
-        const emptyId = firstEmptySlotId(section)
-        if (emptyId == null) return
-        await section.config.onInviteOnchain(emptyId, address, ensName)
+        const created = await inviteOnchainViaSections(
+          liveSections,
+          hop,
+          address,
+          ensName,
+        )
+        if (!created) return
         deferredHideAddressesRef.current.add(address.toLowerCase())
         bumpDeferredHide((n) => n + 1)
-        return { id: emptyId, address, ensName }
+        return created
       }
 
       await new Promise((r) => setTimeout(r, 800))
