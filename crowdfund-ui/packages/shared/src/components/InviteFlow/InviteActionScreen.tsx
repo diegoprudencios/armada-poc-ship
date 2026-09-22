@@ -442,7 +442,10 @@ export function InviteActionScreen({
                           setRevoking(true)
                           try {
                             await onRevoke(createdLink.id)
-                            finishConfirmation(true)
+                            // Already revoked — close without onDiscardCreated,
+                            // which live wiring maps to a second revoke.
+                            pendingConfirmIdRef.current = null
+                            onBack()
                           } finally {
                             setRevoking(false)
                           }

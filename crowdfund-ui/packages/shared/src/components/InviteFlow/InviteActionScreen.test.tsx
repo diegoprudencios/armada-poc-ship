@@ -1,0 +1,57 @@
+// ABOUTME: Tests for InviteActionScreen's link confirmation — revoking a just-created link.
+// ABOUTME: Revoke must fire exactly once; discard (which the live wiring maps to a revoke) must not follow it.
+// @vitest-environment jsdom
+
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { InviteActionScreen } from './InviteActionScreen'
+
+const CREATED_ID = 7
+
+function renderLinkScreen() {
+  const handlers = {
+    onBack: vi.fn(),
+    onGenerateLink: vi.fn().mockResolvedValue({
+      id: CREATED_ID,
+      link: 'https://fund.armada.blue/invite?n=1',
+      expiresAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
+    }),
+    onInviteOnchain: vi.fn().mockResolvedValue(undefined),
+    onRevoke: vi.fn().mockResolvedValue(undefined),
+    onConfirmCreated: vi.fn(),
+    onDiscardCreated: vi.fn(),
+  }
+  render(<InviteActionScreen hop={1} method="link" {...handlers} />)
+  return handlers
+}
+
+describe('InviteActionScreen link confirmation', () => {
+  it('revokes a just-created link exactly once and does not also discard it', async () => {
+    const handlers = renderLinkScreen()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create link' }))
+    await screen.findByText('Link ready to share')
+
+    fireEvent.click(screen.getByRole('button', { name: 'More link actions' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Revoke link' }))
+
+    await waitFor(() => expect(handlers.onBack).toHaveBeenCalledOnce())
+    expect(handlers.onRevoke).toHaveBeenCalledOnce()
+    expect(handlers.onRevoke).toHaveBeenCalledWith(CREATED_ID)
+    expect(handlers.onDiscardCreated).not.toHaveBeenCalled()
+    expect(handlers.onConfirmCreated).not.toHaveBeenCalled()
+  })
+
+  it('reveals the link in the list on Done without revoking', async () => {
+    const handlers = renderLinkScreen()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create link' }))
+    await screen.findByText('Link ready to share')
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }))
+
+    expect(handlers.onConfirmCreated).toHaveBeenCalledWith(CREATED_ID)
+    expect(handlers.onRevoke).not.toHaveBeenCalled()
+    expect(handlers.onDiscardCreated).not.toHaveBeenCalled()
+    expect(handlers.onBack).toHaveBeenCalledOnce()
+  })
+})
