@@ -122,4 +122,20 @@ describe('buildSlotRows', () => {
     expect(slots.map((s) => s.id)).toEqual([10, 11, 12, 13])
     expect(slots.filter((s) => s.status === 'empty')).toHaveLength(3)
   })
+
+  it('converts the link createdAt (unix seconds) to a millisecond Date for redeemed rows', () => {
+    const createdAtSeconds = 1_750_000_000 // 2025-06-15
+    const { slots } = buildSlotRows({
+      totalSlots: 2,
+      startId: 1,
+      activeLinks: [link(5, 'pending', createdAtSeconds), link(6, 'redeemed', createdAtSeconds)],
+      linkRedemptions: new Map([[5, A]]),
+      directInvitedAddresses: [],
+    })
+    const redeemed = slots.filter((s) => s.status === 'redeemed')
+    expect(redeemed).toHaveLength(2)
+    for (const slot of redeemed) {
+      expect(slot.joinedAt?.getTime()).toBe(createdAtSeconds * 1000)
+    }
+  })
 })

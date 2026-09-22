@@ -59,6 +59,9 @@ export function buildSlotRows(args: BuildSlotRowsArgs): BuildSlotRowsResult {
   const rows: Array<{ slot: Omit<SlotData, 'id'>; link?: StoredInviteLink }> = []
   const redeemedNonces = new Set<number>()
 
+  // `joinedAt` on redeemed rows is the link's creation time (`createdAt`, unix
+  // seconds): events carry no timestamps, so the true redemption time isn't
+  // available here without an extra block lookup.
   // 1a. On-chain redemptions (have a redeemer address). Stable order by nonce.
   for (const nonce of [...linkRedemptions.keys()].sort((a, b) => a - b)) {
     const redeemedBy = linkRedemptions.get(nonce)
@@ -69,7 +72,7 @@ export function buildSlotRows(args: BuildSlotRowsArgs): BuildSlotRowsResult {
         redeemedBy,
         isSelf: isSelf(redeemedBy),
         inviteeHop,
-        joinedAt: matchedLink ? new Date(matchedLink.createdAt) : undefined,
+        joinedAt: matchedLink ? new Date(matchedLink.createdAt * 1000) : undefined,
       },
     })
     redeemedNonces.add(nonce)
@@ -81,7 +84,7 @@ export function buildSlotRows(args: BuildSlotRowsArgs): BuildSlotRowsResult {
         slot: {
           status: 'redeemed',
           inviteeHop,
-          joinedAt: new Date(link.createdAt),
+          joinedAt: new Date(link.createdAt * 1000),
         },
       })
       redeemedNonces.add(link.nonce)
