@@ -36,6 +36,7 @@ import { getHubNetworkLabel } from '@/config/network'
 import { resolveSigner, describeSignerError } from '@/lib/resolveSigner'
 import { isMobileBrowser } from '@/lib/isMobileBrowser'
 import { submitTxViaWagmi } from '@/lib/mobileTxSubmit'
+import { hasFreeInviteSlot } from '@/lib/inviteSlots'
 import { useTxPipeline, type TxStep } from '@/hooks/useTxPipeline'
 import { useSelfFill } from '@/hooks/useSelfFill'
 import { useResetPipelineOnClose } from '@/hooks/useResetPipelineOnClose'
@@ -377,7 +378,7 @@ export function ParticipateFlowV2({
         <Step5Confirmation
           onViewPosition={onGoToMyPosition}
           onBackToCrowdfund={onGoToNetwork}
-          canInvite={Boolean(inviteSlotSections && inviteSlotSections.length > 0)}
+          canInvite={hasFreeInviteSlot(inviteSlotSections)}
           onInvite={() => {
             if (inviteSlotSections && inviteSlotSections.length > 0) {
               setStep('invites')

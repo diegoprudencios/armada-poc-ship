@@ -45,6 +45,7 @@ import type { InviteLinkData } from '@/lib/inviteLinks'
 import { resolveSigner, describeSignerError } from '@/lib/resolveSigner'
 import { isMobileBrowser } from '@/lib/isMobileBrowser'
 import { submitTxViaWagmi } from '@/lib/mobileTxSubmit'
+import { hasFreeInviteSlot } from '@/lib/inviteSlots'
 import { useWallet } from '@/hooks/useWallet'
 import { useBeforeUnloadGuard } from '@/hooks/useBeforeUnloadGuard'
 import { useTxPipeline, type TxStep } from '@/hooks/useTxPipeline'
@@ -494,7 +495,7 @@ export function InviteLinkFlowController({ inviteData }: InviteLinkFlowControlle
           totalCommittedUsdc={maxedOut ? usdcToNumber(existingCommittedUsdc) : undefined}
           maxedOut={maxedOut}
           showViewPositionButton
-          canInvite={!inviteSlots.empty}
+          canInvite={hasFreeInviteSlot(inviteSlots.sections)}
           onViewPosition={() => navigate('/?view=myposition')}
           onBackToCrowdfund={() => navigate('/')}
           onInvite={() => {
