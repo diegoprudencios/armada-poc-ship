@@ -120,13 +120,19 @@ function useHopSection(args: {
   // `Invited(inviter, invitee, hop, nonce)` covers both signed-link
   // redemptions (nonce = the link's nonce) and direct `invite()` calls
   // (nonce = 0). Split per-hop so each section drives its own slot state.
-  const { directInvitedAddresses, linkRedemptions } = useMemo<{
+  // `Committed` at the invitee hop marks a direct invitee as joined (link
+  // redemptions commit atomically, so they're joined by construction).
+  const { directInvitedAddresses, linkRedemptions, committedInvitees } = useMemo<{
     directInvitedAddresses: string[]
     linkRedemptions: Map<number, string>
+    committedInvitees: Set<string>
   }>(() => {
     const directs: string[] = []
     const redemptions = new Map<number, string>()
-    if (!address) return { directInvitedAddresses: directs, linkRedemptions: redemptions }
+    const committed = new Set<string>()
+    if (!address) {
+      return { directInvitedAddresses: directs, linkRedemptions: redemptions, committedInvitees: committed }
+    }
     const lowerAddr = address.toLowerCase()
     const targetHop = hop + 1
     const matched = events
@@ -148,7 +154,12 @@ function useHopSection(args: {
         redemptions.set(nonceNum, invitee)
       }
     }
-    return { directInvitedAddresses: directs, linkRedemptions: redemptions }
+    for (const e of events) {
+      if (e.type !== 'Committed') continue
+      if (Number(e.args.hop) !== targetHop) continue
+      committed.add(String(e.args.participant).toLowerCase())
+    }
+    return { directInvitedAddresses: directs, linkRedemptions: redemptions, committedInvitees: committed }
   }, [events, address, hop])
 
   // Build visible slot rows. On-chain consumption (redemptions + direct
@@ -164,10 +175,11 @@ function useHopSection(args: {
         activeLinks,
         linkRedemptions,
         directInvitedAddresses,
+        committedInvitees,
         selfAddress: address,
         inviteeHop: (hop + 1 <= 2 ? hop + 1 : 2) as 0 | 1 | 2,
       }),
-    [totalSlots, activeLinks, directInvitedAddresses, linkRedemptions, startId, address, hop],
+    [totalSlots, activeLinks, directInvitedAddresses, linkRedemptions, committedInvitees, startId, address, hop],
   )
 
   const onGenerateLink = useCallback(

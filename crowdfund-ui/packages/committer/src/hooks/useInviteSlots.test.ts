@@ -6,6 +6,7 @@ import { renderHook, act } from '@testing-library/react'
 import { createElement, type ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { Signer } from 'ethers'
+import type { CrowdfundEvent } from '@armada/crowdfund-shared'
 
 const { mockInvite, mockToast } = vi.hoisted(() => ({
   mockInvite: vi.fn(),
@@ -53,7 +54,10 @@ function makeInviteLinks(): UseInviteLinksResult {
   }
 }
 
-function renderSection({ isWrongNetwork = false } = {}) {
+function renderSection({
+  isWrongNetwork = false,
+  events = [],
+}: { isWrongNetwork?: boolean; events?: CrowdfundEvent[] } = {}) {
   const switchNetwork = vi.fn()
   // useENS reads via react-query — fresh client per render so caches don't leak.
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -68,7 +72,7 @@ function renderSection({ isWrongNetwork = false } = {}) {
         {} as Signer,
         CROWDFUND,
         WALLET,
-        [],
+        events,
         isWrongNetwork,
         switchNetwork,
       ),
@@ -124,5 +128,31 @@ describe('useInviteSlots onInviteOnchain', () => {
     expect(await sendInvite(section)).toBe(false)
     expect(mockInvite).not.toHaveBeenCalled()
     expect(switchNetwork).toHaveBeenCalledOnce()
+  })
+})
+
+function event(type: CrowdfundEvent['type'], logIndex: number, args: Record<string, unknown>): CrowdfundEvent {
+  return { type, blockNumber: 10, transactionHash: '0x' + logIndex, logIndex, args }
+}
+
+// WALLET is hop-0, so its direct invitees join at hop 1.
+const directInvite = event('Invited', 0, { inviter: WALLET, invitee: INVITEE, hop: 1n, nonce: 0n })
+
+describe('useInviteSlots direct-invite rows', () => {
+  it('shows a direct invitee as waiting until they commit', () => {
+    const { section } = renderSection({ events: [directInvite] })
+    expect(section.config.slots[0]).toMatchObject({ status: 'onchain-pending', invitedAddress: INVITEE })
+  })
+
+  it('shows a direct invitee as joined once they commit at the invitee hop', () => {
+    const committed = event('Committed', 1, { participant: INVITEE, hop: 1n, amount: 500_000_000n })
+    const { section } = renderSection({ events: [directInvite, committed] })
+    expect(section.config.slots[0]).toMatchObject({ status: 'redeemed', redeemedBy: INVITEE })
+  })
+
+  it('ignores the invitee committing at a different hop', () => {
+    const committedElsewhere = event('Committed', 1, { participant: INVITEE, hop: 2n, amount: 500_000_000n })
+    const { section } = renderSection({ events: [directInvite, committedElsewhere] })
+    expect(section.config.slots[0].status).toBe('onchain-pending')
   })
 })

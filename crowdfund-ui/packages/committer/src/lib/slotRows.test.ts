@@ -123,6 +123,33 @@ describe('buildSlotRows', () => {
     expect(slots.filter((s) => s.status === 'empty')).toHaveLength(3)
   })
 
+  it('marks a direct invitee as joined once they have committed at the invitee hop', () => {
+    const { slots } = buildSlotRows({
+      totalSlots: 3,
+      startId: 1,
+      activeLinks: [],
+      linkRedemptions: new Map(),
+      directInvitedAddresses: [A, B],
+      committedInvitees: new Set([B]),
+      inviteeHop: 1,
+    })
+    expect(slots[0]).toMatchObject({ id: 1, status: 'onchain-pending', invitedAddress: A })
+    expect(slots[1]).toMatchObject({ id: 2, status: 'redeemed', redeemedBy: B, inviteeHop: 1 })
+    expect(slots[2]).toMatchObject({ id: 3, status: 'empty' })
+  })
+
+  it('matches committed invitees case-insensitively', () => {
+    const { slots } = buildSlotRows({
+      totalSlots: 1,
+      startId: 1,
+      activeLinks: [],
+      linkRedemptions: new Map(),
+      directInvitedAddresses: [A.toUpperCase().replace('0X', '0x')],
+      committedInvitees: new Set([A]),
+    })
+    expect(slots[0].status).toBe('redeemed')
+  })
+
   it('converts the link createdAt (unix seconds) to a millisecond Date for redeemed rows', () => {
     const createdAtSeconds = 1_750_000_000 // 2025-06-15
     const { slots } = buildSlotRows({
