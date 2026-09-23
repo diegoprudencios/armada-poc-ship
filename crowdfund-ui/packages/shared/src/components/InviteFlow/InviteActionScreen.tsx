@@ -388,49 +388,41 @@ export function InviteActionScreen({
     const path = inviteLinkPath(createdLink.link)
     return (
       <div className={styles.root}>
-        <div className={styles.body}>
-          {hopTag}
-          <h3 className={styles.title}>{title}</h3>
-          <div className={styles.linkBox} title={createdLink.link}>
-            <span className={styles.linkText}>{path}</span>
+        <div className={styles.topRow}>
+          <div className={styles.titleBlock}>
+            {hopTag}
+            <h3 className={styles.title}>{title}</h3>
           </div>
-          <p className={styles.meta}>{formatExpiryDays(createdLink.expiresAt)}</p>
         </div>
-        <div className={styles.footer}>
-          <div className={styles.footerActions}>
-            <Button
-              type="button"
-              variant="primary"
-              size="md"
-              className={styles.primaryGrow}
-              showIcon={false}
-              label={copied ? 'Copied' : 'Copy link'}
-              onClick={() => {
-                onCopy?.(createdLink.id, createdLink.link)
-              }}
-            />
-            <div className={styles.menuWrap} ref={linkMenuRef}>
-              <Button
+        <div className={styles.body}>
+          <div className={styles.createdLinkBox}>
+            <div className={styles.createdLinkMain}>
+              <p className={styles.createdLinkPath} title={createdLink.link}>
+                {path}
+              </p>
+              <p className={styles.createdLinkMeta}>
+                {formatExpiryDays(createdLink.expiresAt)}
+              </p>
+            </div>
+            <div className={styles.createdLinkMenu} ref={linkMenuRef}>
+              <button
                 type="button"
-                variant="secondary"
-                size="md"
-                className={styles.iconBtn}
-                showIcon={false}
+                className={styles.moreBtn}
                 aria-label="More link actions"
                 aria-haspopup="menu"
                 aria-expanded={linkMenuOpen}
-                leadingIcon={
-                  <EllipsisHorizontalIcon className={styles.menuIcon} aria-hidden />
-                }
+                aria-controls={linkMenuOpen ? linkMenuId : undefined}
                 onClick={() => setLinkMenuOpen((open) => !open)}
-              />
+              >
+                <EllipsisHorizontalIcon className={styles.moreIcon} aria-hidden />
+              </button>
               {linkMenuOpen && (
-                <ul id={linkMenuId} className={styles.menu} role="menu">
+                <ul id={linkMenuId} className={styles.moreMenu} role="menu">
                   <li role="none">
                     <button
                       type="button"
                       role="menuitem"
-                      className={styles.menuItemDanger}
+                      className={[styles.moreMenuItem, styles.moreMenuItemDanger].join(' ')}
                       disabled={revoking || !onRevoke}
                       onClick={() => {
                         setLinkMenuOpen(false)
@@ -459,14 +451,25 @@ export function InviteActionScreen({
               )}
             </div>
           </div>
+        </div>
+        <div className={styles.ctaRow}>
           <Button
             type="button"
             variant="secondary"
-            size="md"
-            className={styles.fullWidth}
+            size="sm"
             showIcon={false}
             label="Done"
             onClick={() => finishConfirmation(false)}
+          />
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            showIcon={false}
+            label={copied ? 'Copied' : 'Copy link'}
+            onClick={() => {
+              onCopy?.(createdLink.id, createdLink.link)
+            }}
           />
         </div>
       </div>
@@ -478,22 +481,34 @@ export function InviteActionScreen({
       createdOnchain.ensName ?? truncateAddress(createdOnchain.address)
     return (
       <div className={styles.root}>
+        <div className={styles.topRow}>
+          <div className={styles.titleBlock}>
+            {hopTag}
+            <h3 className={styles.title}>{title}</h3>
+          </div>
+        </div>
         <div className={styles.body}>
-          {hopTag}
-          <h3 className={styles.title}>{title}</h3>
-          <p className={styles.confirmAddress} title={createdOnchain.address}>
-            {display}
-          </p>
-          <p className={styles.meta}>
+          <p className={styles.hint}>
             On-chain invites cannot be revoked. The invitee can commit when ready.
           </p>
+          <div className={styles.createdLinkBox}>
+            <div className={styles.createdLinkMain}>
+              <p
+                className={
+                  createdOnchain.ensName ? styles.createdLinkPath : styles.createdAddressMono
+                }
+                title={createdOnchain.address}
+              >
+                {display}
+              </p>
+            </div>
+          </div>
         </div>
-        <div className={styles.footer}>
+        <div className={styles.ctaRow}>
           <Button
             type="button"
-            variant="primary"
-            size="md"
-            className={styles.fullWidth}
+            variant="secondary"
+            size="sm"
             showIcon={false}
             label="Done"
             onClick={() => finishConfirmation(false)}
@@ -505,28 +520,31 @@ export function InviteActionScreen({
 
   return (
     <div className={styles.root}>
+      <div className={styles.topRow}>
+        <div className={styles.titleBlock}>
+          {hopTag}
+          <h3 className={styles.title}>{title}</h3>
+        </div>
+      </div>
       <div className={styles.body}>
-        {hopTag}
-        <h3 className={styles.title}>{title}</h3>
-
         {method == null && onSelectMethod && (
-          <div className={styles.methodPick}>
-            <button
+          <div className={styles.methodPick} role="group" aria-label="Invite method">
+            <Button
               type="button"
-              className={styles.methodOption}
+              variant="secondary"
+              size="sm"
+              showIcon={false}
+              label="Whitelist new address"
               onClick={() => onSelectMethod('onchain')}
-            >
-              <span className={styles.methodLabel}>Whitelist new address</span>
-              <span className={styles.methodHint}>Invite onchain — requires gas</span>
-            </button>
-            <button
+            />
+            <Button
               type="button"
-              className={styles.methodOption}
+              variant="secondary"
+              size="sm"
+              showIcon={false}
+              label="Share link"
               onClick={() => onSelectMethod('link')}
-            >
-              <span className={styles.methodLabel}>Share link</span>
-              <span className={styles.methodHint}>Create a redeemable invite link</span>
-            </button>
+            />
           </div>
         )}
 
@@ -535,11 +553,13 @@ export function InviteActionScreen({
             <label className={styles.fieldLabel} htmlFor="invite-action-address">
               Wallet address or ENS
             </label>
-            <div className={styles.inputRow}>
+            <div className={styles.inputWrapper}>
               <input
                 ref={addressInputElRef}
                 id="invite-action-address"
-                className={styles.input}
+                className={[styles.input, showPasteBtn && styles.inputWithPaste]
+                  .filter(Boolean)
+                  .join(' ')}
                 value={addressInput}
                 onChange={(e) => {
                   void handleAddressChange(e.target.value)
@@ -551,16 +571,18 @@ export function InviteActionScreen({
                 aria-invalid={ensState === 'error'}
               />
               {showPasteBtn && (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  showIcon={false}
-                  label="Paste"
-                  onClick={() => {
-                    void handlePaste()
-                  }}
-                />
+                <div className={styles.inputTrailing}>
+                  <button
+                    type="button"
+                    className={styles.pasteBtn}
+                    aria-label="Paste address from clipboard"
+                    onClick={() => {
+                      void handlePaste()
+                    }}
+                  >
+                    Paste
+                  </button>
+                </div>
               )}
             </div>
             {ensState === 'resolving' && (
@@ -574,15 +596,15 @@ export function InviteActionScreen({
               </p>
             )}
             {ensState === 'error' && (
-              <p className={styles.error} role="alert">
+              <span className={styles.errorMsg} role="alert">
                 Could not resolve address
-              </p>
+              </span>
             )}
           </div>
         )}
 
         {method === 'link' && (
-          <p className={styles.meta}>
+          <p className={styles.hint}>
             Anyone with the link can join at {hopLabel}. You can revoke unused links
             later.
           </p>
@@ -590,34 +612,31 @@ export function InviteActionScreen({
       </div>
 
       {method != null && (
-        <div className={styles.footer}>
-          <div className={styles.footerActions}>
-            <Button
-              type="button"
-              variant="secondary"
-              size="md"
-              showIcon={false}
-              label="Cancel"
-              // A submitted tx / pending signature can't be cancelled from
-              // here — the wallet prompt is the place to reject it.
-              disabled={loading}
-              onClick={handleCancel}
-            />
-            <Button
-              type="button"
-              variant="primary"
-              size="md"
-              className={styles.primaryGrow}
-              showIcon={false}
-              label={primaryLabel}
-              disabled={primaryBlocked}
-              loading={loading}
-              onClick={() => {
-                if (method === 'link') void handleGenerateLink()
-                else void handleInviteOnchain()
-              }}
-            />
-          </div>
+        <div className={styles.ctaRow}>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            showIcon={false}
+            label="Cancel"
+            // A submitted tx / pending signature can't be cancelled from
+            // here — the wallet prompt is the place to reject it.
+            disabled={loading}
+            onClick={handleCancel}
+          />
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            showIcon={false}
+            label={primaryLabel}
+            disabled={primaryBlocked}
+            loading={loading}
+            onClick={() => {
+              if (method === 'link') void handleGenerateLink()
+              else void handleInviteOnchain()
+            }}
+          />
         </div>
       )}
     </div>

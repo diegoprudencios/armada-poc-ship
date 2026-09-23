@@ -245,19 +245,21 @@
   width: 100%;
 }
 
-/* Address field: label, input row, then resolving / resolved / error text. */
+/* Address field: label, input (with trailing Paste), then resolving /
+ * resolved / error text. */
 .field {
   display: flex;
   flex-direction: column;
   gap: var(--primitives-spacing-2);
 }
 
-/* Address input with the Paste button stacked beneath it. */
-.inputRow {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--primitives-spacing-2);
+/* Visible field label — not in the mockup (it uses an aria-label only); kept
+ * for clarity and accessibility, styled like the hop label. */
+.fieldLabel {
+  font-family: var(--primitives-fontFamily-ui), sans-serif;
+  font-size: calc(var(--primitives-fontSize-sm) * 1px);
+  font-weight: var(--primitives-fontWeight-regular);
+  color: var(--semantic-color-text-muted);
 }
 
 .input {
