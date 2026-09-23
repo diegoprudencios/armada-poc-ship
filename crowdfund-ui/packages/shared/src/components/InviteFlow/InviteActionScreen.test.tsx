@@ -55,3 +55,31 @@ describe('InviteActionScreen link confirmation', () => {
     expect(handlers.onBack).toHaveBeenCalledOnce()
   })
 })
+
+describe('InviteActionScreen in-flight state', () => {
+  const baseProps = {
+    hop: 1 as const,
+    onBack: vi.fn(),
+    onGenerateLink: vi.fn().mockResolvedValue(undefined),
+    onInviteOnchain: vi.fn().mockResolvedValue(undefined),
+  }
+
+  it('shows the on-chain invite as busy and disables Cancel while the tx is in flight', () => {
+    render(<InviteActionScreen {...baseProps} method="onchain" loading />)
+    const invite = screen.getByRole('button', { name: /Inviting/ })
+    expect(invite.getAttribute('aria-busy')).toBe('true')
+    expect((screen.getByRole('button', { name: 'Cancel' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('shows link creation as busy and disables Cancel while the signature is pending', () => {
+    render(<InviteActionScreen {...baseProps} method="link" loading />)
+    const create = screen.getByRole('button', { name: /Creating/ })
+    expect(create.getAttribute('aria-busy')).toBe('true')
+    expect((screen.getByRole('button', { name: 'Cancel' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it('keeps Cancel enabled when nothing is in flight', () => {
+    render(<InviteActionScreen {...baseProps} method="onchain" />)
+    expect((screen.getByRole('button', { name: 'Cancel' }) as HTMLButtonElement).disabled).toBe(false)
+  })
+})

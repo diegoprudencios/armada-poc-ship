@@ -598,6 +598,9 @@ export function InviteActionScreen({
               size="md"
               showIcon={false}
               label="Cancel"
+              // A submitted tx / pending signature can't be cancelled from
+              // here — the wallet prompt is the place to reject it.
+              disabled={loading}
               onClick={handleCancel}
             />
             <Button
@@ -608,6 +611,7 @@ export function InviteActionScreen({
               showIcon={false}
               label={primaryLabel}
               disabled={primaryBlocked}
+              loading={loading}
               onClick={() => {
                 if (method === 'link') void handleGenerateLink()
                 else void handleInviteOnchain()
