@@ -71,6 +71,31 @@ describe('inviteOnchainViaSections', () => {
   })
 })
 
+describe('inviteOnchainViaSections onBeforeSend', () => {
+  it('reports the slot id before the invite is sent, so callers can hide the row first', async () => {
+    const calls: string[] = []
+    const section = makeSection({
+      onInviteOnchain: vi.fn(async () => {
+        calls.push('send')
+        return true
+      }),
+    })
+    await inviteOnchainViaSections([section], 1, ADDRESS, undefined, (slotId) => {
+      calls.push(`before:${slotId}`)
+    })
+    expect(calls).toEqual(['before:2', 'send'])
+  })
+
+  it('does not report a slot when nothing will be sent', async () => {
+    const onBeforeSend = vi.fn()
+    const wrongNetwork = makeSection({ isWrongNetwork: true })
+    await inviteOnchainViaSections([wrongNetwork], 1, ADDRESS, undefined, onBeforeSend)
+    const full = makeSection({ slots: [{ id: 1, status: 'redeemed' }] })
+    await inviteOnchainViaSections([full], 1, ADDRESS, undefined, onBeforeSend)
+    expect(onBeforeSend).not.toHaveBeenCalled()
+  })
+})
+
 describe('revokeLinkViaSections', () => {
   const LINK_A = 'https://fund.armada.blue/invite?nonce=11'
   const LINK_B = 'https://fund.armada.blue/invite?nonce=22'

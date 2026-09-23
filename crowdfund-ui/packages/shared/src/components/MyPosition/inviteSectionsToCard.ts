@@ -100,12 +100,17 @@ export function revokeLinkViaSections(
  * Resolves with the created invite only when the section confirms it was sent;
  * undefined when nothing was sent (wrong network, no empty slot, rejected,
  * reverted, or still pending) so callers never show a false success.
+ *
+ * `onBeforeSend` receives the slot id just before the send starts. The
+ * section can surface the new row (e.g. from receipt logs) before the send
+ * resolves, so callers that defer showing it must hide it here, not after.
  */
 export async function inviteOnchainViaSections(
   sections: ReadonlyArray<InviteSectionLike>,
   inviteeHop: InviteeHop,
   address: string,
   ensName?: string,
+  onBeforeSend?: (slotId: number) => void,
 ): Promise<{ id: number; address: string; ensName?: string } | undefined> {
   const section = sectionForInviteeHop(sections, inviteeHop)
   if (!section) return undefined
@@ -115,6 +120,7 @@ export async function inviteOnchainViaSections(
   }
   const emptyId = firstEmptySlotId(section)
   if (emptyId == null) return undefined
+  onBeforeSend?.(emptyId)
   const sent = await section.config.onInviteOnchain(emptyId, address, ensName)
   if (!sent) return undefined
   return { id: emptyId, address, ensName }

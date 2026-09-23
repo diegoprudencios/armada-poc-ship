@@ -945,15 +945,24 @@ export function CrowdfundExperience({
     setLoadingHop(hop)
     try {
       if (liveSections) {
+        // Hide before sending: the row lands (via receipt logs) before the
+        // send resolves, so hiding afterwards would flash it in the list.
+        let hiddenId: number | null = null
         const created = await inviteOnchainViaSections(
           liveSections,
           hop,
           address,
           ensName,
+          (slotId) => {
+            hiddenId = slotId
+            deferredHides.hide(slotId, { address })
+          },
         )
-        if (!created) return
-        deferredHides.hide(created.id, { address })
-        bumpDeferredHide((n) => n + 1)
+        if (!created) {
+          if (hiddenId != null) deferredHides.reveal(hiddenId)
+          bumpDeferredHide((n) => n + 1)
+          return
+        }
         return created
       }
 
