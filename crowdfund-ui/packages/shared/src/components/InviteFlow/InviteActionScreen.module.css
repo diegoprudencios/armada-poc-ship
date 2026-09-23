@@ -245,6 +245,13 @@
   width: 100%;
 }
 
+/* Address field: label, input row, then resolving / resolved / error text. */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--primitives-spacing-2);
+}
+
 /* Address input with the Paste button stacked beneath it. */
 .inputRow {
   display: flex;
