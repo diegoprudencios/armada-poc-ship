@@ -1185,7 +1185,13 @@ export function CrowdfundExperience({
                     className={mpStyles.headerCta}
                     variant="gradient"
                     size="sm"
-                    label={myPositionEmptyKind === null ? 'Commit again' : 'Participate'}
+                    // Invited-but-uncommitted wallets are 'ready' with zero
+                    // committed — they haven't participated yet.
+                    label={
+                      myPositionEmptyKind === null && myPositionCommittedUsd > 0
+                        ? 'Commit again'
+                        : 'Participate'
+                    }
                     showIcon
                     icon="arrow-right-micro"
                     onClick={onParticipate}
