@@ -23,6 +23,7 @@ import {
   issuedSlotsFromInviteSections,
   sectionForInviteeHop,
 } from '../MyPosition/inviteSectionsToCard'
+import { createDeferredInviteHides } from '../MyPosition/deferredInviteHides'
 import { nextInviteId, type InviteAllowance, type InviteeHop } from '../MyPosition/inviteModel'
 import {
   ARM_ALLOCATION,
@@ -574,8 +575,9 @@ export function CrowdfundExperience({
   const [demoSlots, setDemoSlots] = useState<SlotData[]>(() => DEMO_SLOTS)
   const [demoAllowance] = useState<InviteAllowance>(DEMO_INVITE_ALLOWANCE)
   const pendingInvitesRef = useRef<Map<number, SlotData>>(new Map())
-  const deferredHideLinksRef = useRef<Set<string>>(new Set())
-  const deferredHideAddressesRef = useRef<Set<string>>(new Set())
+  // Live invites hidden from the sent list until their create confirmation is
+  // dismissed — keyed by created id, since the live row can land at another slot id.
+  const [deferredHides] = useState(createDeferredInviteHides)
   const [deferredHideEpoch, bumpDeferredHide] = useState(0)
 
   const handleInviteListOpenChange = useCallback((open: boolean) => {
@@ -792,11 +794,7 @@ export function CrowdfundExperience({
       return [...pendingInvitesRef.current.values(), ...demoSlots]
     }
     return liveIssuedSlots.map((slot) => {
-      const hideLink = slot.link != null && deferredHideLinksRef.current.has(slot.link)
-      const hideAddr =
-        slot.invitedAddress != null &&
-        deferredHideAddressesRef.current.has(slot.invitedAddress.toLowerCase())
-      if (!hideLink && !hideAddr) return slot
+      if (!deferredHides.isHidden(slot)) return slot
       return { ...slot, hideFromList: true }
     })
   }, [liveSections, liveIssuedSlots, demoSlots, deferredHideEpoch])
@@ -836,7 +834,7 @@ export function CrowdfundExperience({
           created.expiresAt instanceof Date &&
           typeof created.id === 'number'
         ) {
-          deferredHideLinksRef.current.add(created.link)
+          deferredHides.hide(created.id, { link: created.link })
           bumpDeferredHide((n) => n + 1)
           return {
             id: created.id,
@@ -877,7 +875,7 @@ export function CrowdfundExperience({
         const slot = section.config.slots.find((s) => s.id === inviteId)
         if (slot) {
           section.config.onRevoke(inviteId)
-          if (slot.link) deferredHideLinksRef.current.delete(slot.link)
+          if (slot.link) deferredHides.unhideLink(slot.link)
           bumpDeferredHide((n) => n + 1)
           return
         }
@@ -902,18 +900,7 @@ export function CrowdfundExperience({
   const revealInviteInList = (id: number) => {
     const draft = pendingInvitesRef.current.get(id)
     pendingInvitesRef.current.delete(id)
-    if (draft?.link) deferredHideLinksRef.current.delete(draft.link)
-    if (draft?.invitedAddress) {
-      deferredHideAddressesRef.current.delete(draft.invitedAddress.toLowerCase())
-    }
-    for (const slot of liveIssuedSlots) {
-      if (slot.id === id) {
-        if (slot.link) deferredHideLinksRef.current.delete(slot.link)
-        if (slot.invitedAddress) {
-          deferredHideAddressesRef.current.delete(slot.invitedAddress.toLowerCase())
-        }
-      }
-    }
+    deferredHides.reveal(id)
     bumpDeferredHide((n) => n + 1)
     if (!draft) return
     setDemoSlots((prev) => {
@@ -939,8 +926,7 @@ export function CrowdfundExperience({
   const flushPendingInvites = () => {
     const drafts = [...pendingInvitesRef.current.values()]
     pendingInvitesRef.current.clear()
-    deferredHideLinksRef.current.clear()
-    deferredHideAddressesRef.current.clear()
+    deferredHides.clear()
     bumpDeferredHide((n) => n + 1)
     if (drafts.length === 0) return
     setDemoSlots((prev) => {
@@ -966,7 +952,7 @@ export function CrowdfundExperience({
           ensName,
         )
         if (!created) return
-        deferredHideAddressesRef.current.add(address.toLowerCase())
+        deferredHides.hide(created.id, { address })
         bumpDeferredHide((n) => n + 1)
         return created
       }
