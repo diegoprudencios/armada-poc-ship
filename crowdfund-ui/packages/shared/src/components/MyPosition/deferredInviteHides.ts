@@ -18,6 +18,8 @@ export interface DeferredInviteHides {
   unhideLink(link: string): void
   /** Show every hidden invite (e.g. when leaving the panel). */
   clear(): void
+  /** What identifies the invite created as `id`, while it is still hidden. */
+  keyFor(id: number): DeferredInviteKey | undefined
   isHidden(slot: SlotData): boolean
 }
 
@@ -49,6 +51,9 @@ export function createDeferredInviteHides(): DeferredInviteHides {
       keysById.clear()
       links.clear()
       addresses.clear()
+    },
+    keyFor(id) {
+      return keysById.get(id)
     },
     isHidden(slot) {
       if (slot.link != null && links.has(slot.link)) return true

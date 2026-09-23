@@ -75,6 +75,27 @@ export function firstEmptySlotId(section: InviteSectionLike): number | null {
 }
 
 /**
+ * Revoke the invite link with this URL through the section that currently
+ * holds it. Resolves by URL (unique per link nonce) rather than a slot id a
+ * caller captured earlier: live rows re-sort as on-chain invites land, so a
+ * stale slot id can point at a different pending link. Returns false (and
+ * revokes nothing) when no section holds the link.
+ */
+export function revokeLinkViaSections(
+  sections: ReadonlyArray<InviteSectionLike>,
+  link: string,
+): boolean {
+  for (const section of sections) {
+    const slot = section.config.slots.find((s) => s.link === link)
+    if (slot) {
+      section.config.onRevoke(slot.id)
+      return true
+    }
+  }
+  return false
+}
+
+/**
  * Send an on-chain invite through the section that feeds `inviteeHop`.
  * Resolves with the created invite only when the section confirms it was sent;
  * undefined when nothing was sent (wrong network, no empty slot, rejected,

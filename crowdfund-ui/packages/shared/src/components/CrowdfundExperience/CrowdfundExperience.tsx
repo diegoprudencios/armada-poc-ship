@@ -21,6 +21,7 @@ import {
   firstEmptySlotId,
   inviteOnchainViaSections,
   issuedSlotsFromInviteSections,
+  revokeLinkViaSections,
   sectionForInviteeHop,
 } from '../MyPosition/inviteSectionsToCard'
 import { createDeferredInviteHides } from '../MyPosition/deferredInviteHides'
@@ -869,17 +870,14 @@ export function CrowdfundExperience({
     setTimeout(() => setCopiedId((cur) => (cur === slotId ? null : cur)), 2000)
   }
 
-  const handleRevoke = async (inviteId: number) => {
+  const handleRevoke = async (inviteId: number, link?: string) => {
     if (liveSections) {
-      for (const section of liveSections) {
-        const slot = section.config.slots.find((s) => s.id === inviteId)
-        if (slot) {
-          section.config.onRevoke(inviteId)
-          if (slot.link) deferredHides.unhideLink(slot.link)
-          bumpDeferredHide((n) => n + 1)
-          return
-        }
-      }
+      // Live rows re-sort as on-chain invites land, so `inviteId` can point at
+      // a different pending link — only ever revoke by the link itself.
+      if (!link) return
+      revokeLinkViaSections(liveSections, link)
+      deferredHides.unhideLink(link)
+      bumpDeferredHide((n) => n + 1)
       return
     }
     pendingInvitesRef.current.delete(inviteId)
@@ -916,7 +914,9 @@ export function CrowdfundExperience({
   const discardDeferredInvite = (id: number) => {
     pendingInvitesRef.current.delete(id)
     if (liveSections) {
-      void handleRevoke(id)
+      const link = deferredHides.keyFor(id)?.link
+      if (link) void handleRevoke(id, link)
+      deferredHides.reveal(id)
     } else {
       setDemoSlots((prev) => prev.filter((slot) => slot.id !== id))
     }

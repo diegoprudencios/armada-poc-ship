@@ -78,7 +78,9 @@ export interface InviteActionScreenProps {
     ensName?: string,
   ) => Promise<CreatedOnchainInvite | void>
   onCopy?: (id: number, link: string) => void
-  onRevoke?: (id: number) => void | Promise<void>
+  /** `link` identifies the invite link to revoke — prefer it over `id`, which is
+   *  the slot the link was created through and can go stale as rows re-sort. */
+  onRevoke?: (id: number, link?: string) => void | Promise<void>
   /** Reveal deferred invite in the sent list (Done / close confirmation). */
   onConfirmCreated?: (id: number) => void
   /** Drop deferred invite revoked from confirmation (never shown in list). */
@@ -433,7 +435,7 @@ export function InviteActionScreen({
                         void (async () => {
                           setRevoking(true)
                           try {
-                            await onRevoke(createdLink.id)
+                            await onRevoke(createdLink.id, createdLink.link)
                             // Already revoked — close without onDiscardCreated,
                             // which live wiring maps to a second revoke.
                             pendingConfirmIdRef.current = null

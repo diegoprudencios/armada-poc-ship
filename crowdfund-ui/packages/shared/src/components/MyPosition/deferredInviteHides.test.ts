@@ -53,3 +53,13 @@ describe('createDeferredInviteHides', () => {
     expect(hides.isHidden({ id: 2, status: 'link-active', link: LINK })).toBe(false)
   })
 })
+
+describe('createDeferredInviteHides keyFor', () => {
+  it('returns what identifies the invite created as an id, until revealed', () => {
+    const hides = createDeferredInviteHides()
+    hides.hide(4, { link: LINK })
+    expect(hides.keyFor(4)).toEqual({ link: LINK, address: undefined })
+    hides.reveal(4)
+    expect(hides.keyFor(4)).toBeUndefined()
+  })
+})

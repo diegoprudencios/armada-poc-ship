@@ -67,7 +67,9 @@ export interface InvitesCardProps {
     hop: InviteeHop,
   ) => Promise<{ id: number; link: string; expiresAt: Date } | void>
   onCopy: (inviteId: number, link: string) => void
-  onRevoke: (inviteId: number) => void | Promise<void>
+  /** `link` identifies the invite link to revoke — prefer it over `inviteId`,
+   *  which can go stale as live rows re-sort. */
+  onRevoke: (inviteId: number, link?: string) => void | Promise<void>
   onConfirmCreated?: (inviteId: number) => void
   onDiscardCreated?: (inviteId: number) => void
   /** Commit deferred invites when leaving the panel mid-confirmation. */
@@ -898,7 +900,7 @@ interface InviteListRowProps {
   index: number
   copied: boolean
   onCopy: (id: number, link: string) => void
-  onRevoke: (id: number) => void | Promise<void>
+  onRevoke: (id: number, link?: string) => void | Promise<void>
   onView?: (address: string) => void
 }
 
@@ -1068,7 +1070,7 @@ function InviteListRow({
   const handleConfirmRevoke = async () => {
     setRevoking(true)
     try {
-      await onRevoke(invite.id)
+      await onRevoke(invite.id, invite.link)
     } finally {
       setRevoking(false)
       setRevokeConfirmOpen(false)

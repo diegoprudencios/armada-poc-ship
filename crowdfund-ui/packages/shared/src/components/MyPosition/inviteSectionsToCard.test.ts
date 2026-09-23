@@ -1,9 +1,10 @@
-// ABOUTME: Tests for sending an on-chain invite through live invite sections.
-// ABOUTME: Success is reported only when the section confirms the invite was sent.
+// ABOUTME: Tests for sending on-chain invites and revoking links through live invite sections.
+// ABOUTME: Invite success needs the section's confirmation; revokes resolve the link by URL, not slot id.
 
 import { describe, it, expect, vi } from 'vitest'
 import {
   inviteOnchainViaSections,
+  revokeLinkViaSections,
   type InviteSectionLike,
 } from './inviteSectionsToCard'
 
@@ -67,5 +68,38 @@ describe('inviteOnchainViaSections', () => {
     const created = await inviteOnchainViaSections([section], 1, ADDRESS)
     expect(section.config.onInviteOnchain).not.toHaveBeenCalled()
     expect(created).toBeUndefined()
+  })
+})
+
+describe('revokeLinkViaSections', () => {
+  const LINK_A = 'https://fund.armada.blue/invite?nonce=11'
+  const LINK_B = 'https://fund.armada.blue/invite?nonce=22'
+
+  it('revokes the slot currently holding the link, not a stale slot id', () => {
+    // LINK_B was created through slot 2. A direct invite has since landed and
+    // sorts ahead of links, so LINK_A now sits in slot 2 and LINK_B in slot 3.
+    const section = makeSection({
+      slots: [
+        { id: 1, status: 'onchain-pending', invitedAddress: ADDRESS },
+        { id: 2, status: 'link-active', link: LINK_A },
+        { id: 3, status: 'link-active', link: LINK_B },
+      ],
+    })
+    expect(revokeLinkViaSections([section], LINK_B)).toBe(true)
+    expect(section.config.onRevoke).toHaveBeenCalledExactlyOnceWith(3)
+  })
+
+  it('finds the link in whichever section holds it', () => {
+    const hop0 = makeSection({ slots: [{ id: 1, status: 'link-active', link: LINK_A }] }, 0)
+    const hop1 = makeSection({ slots: [{ id: 4, status: 'link-active', link: LINK_B }] }, 1)
+    revokeLinkViaSections([hop0, hop1], LINK_B)
+    expect(hop0.config.onRevoke).not.toHaveBeenCalled()
+    expect(hop1.config.onRevoke).toHaveBeenCalledExactlyOnceWith(4)
+  })
+
+  it('revokes nothing when the link is not in any section', () => {
+    const section = makeSection({ slots: [{ id: 1, status: 'link-active', link: LINK_A }] })
+    expect(revokeLinkViaSections([section], LINK_B)).toBe(false)
+    expect(section.config.onRevoke).not.toHaveBeenCalled()
   })
 })

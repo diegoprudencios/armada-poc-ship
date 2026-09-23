@@ -37,7 +37,8 @@ describe('InviteActionScreen link confirmation', () => {
 
     await waitFor(() => expect(handlers.onBack).toHaveBeenCalledOnce())
     expect(handlers.onRevoke).toHaveBeenCalledOnce()
-    expect(handlers.onRevoke).toHaveBeenCalledWith(CREATED_ID)
+    // The URL lets the live wiring find the link wherever its row now sits.
+    expect(handlers.onRevoke).toHaveBeenCalledWith(CREATED_ID, 'https://fund.armada.blue/invite?n=1')
     expect(handlers.onDiscardCreated).not.toHaveBeenCalled()
     expect(handlers.onConfirmCreated).not.toHaveBeenCalled()
   })
