@@ -86,7 +86,11 @@
   gap: var(--primitives-spacing-5);
   flex: 1;
   min-height: 0;
-  justify-content: center;
+  /* `safe center` centers when there's room but top-aligns when content
+   * overflows, so the top stays scrollable instead of clipping. Browsers
+   * without `safe` support ignore it and keep the top-aligned fallback. */
+  justify-content: flex-start;
+  justify-content: safe center;
   overflow-y: auto;
 }
 
@@ -366,6 +370,7 @@
   .cardShell {
     width: 100%;
     max-width: none;
+    height: auto;
     min-height: 0;
   }
 }

@@ -25,7 +25,9 @@ import {
 import {
   allowanceFromInviteSections,
   firstEmptySlotId,
+  inviteOnchainViaSections,
   issuedSlotsFromInviteSections,
+  revokeLinkViaSections,
   sectionForInviteeHop,
 } from '../MyPosition/inviteSectionsToCard'
 import inviteStyles from '../InviteFlow/screens/InviteSlots.module.css'
@@ -142,18 +144,8 @@ export function ParticipateFlowInviteSlots({
   )
 
   const handleInviteOnchain = useCallback(
-    async (hop: InviteeHop, address: string, ensName?: string) => {
-      const section = sectionForInviteeHop(sections, hop)
-      if (!section) return
-      if (section.config.isWrongNetwork) {
-        section.config.onSwitchNetwork?.()
-        return
-      }
-      const emptyId = firstEmptySlotId(section)
-      if (emptyId == null) return
-      await section.config.onInviteOnchain(emptyId, address, ensName)
-      return { id: emptyId, address, ensName }
-    },
+    (hop: InviteeHop, address: string, ensName?: string) =>
+      inviteOnchainViaSections(sections, hop, address, ensName),
     [sections],
   )
 
@@ -169,14 +161,11 @@ export function ParticipateFlowInviteSlots({
     [sections],
   )
 
+  // Revoke by the link itself, never by `id`: live rows re-sort as on-chain
+  // invites land, so a captured slot id can point at a different pending link.
   const handleRevoke = useCallback(
-    async (id: number) => {
-      for (const section of sections) {
-        if (section.config.slots.some((slot) => slot.id === id)) {
-          section.config.onRevoke(id)
-          return
-        }
-      }
+    async (_id: number, link?: string) => {
+      if (link) revokeLinkViaSections(sections, link)
     },
     [sections],
   )

@@ -15,6 +15,9 @@ export interface BuildSlotRowsArgs {
   linkRedemptions: Map<number, string>
   /** Invitee addresses from direct on-chain `invite()` calls (nonce === 0). */
   directInvitedAddresses: string[]
+  /** Lowercased addresses with a `Committed` event at the invitee hop. A
+   *  direct invitee in this set has joined, so their row reads as redeemed. */
+  committedInvitees?: ReadonlySet<string>
   /** The connected (inviter) address — used to flag self-invites so the row
    *  reads "self-invited" instead of "invited". Case-insensitive. */
   selfAddress?: string | null
@@ -36,7 +39,8 @@ export interface BuildSlotRowsResult {
  *   1. Redeemed rows — every on-chain redemption (matched to a local link OR
  *      cross-device), plus any locally-persisted `redeemed` link not yet in the
  *      event stream.
- *   2. Direct on-chain invites (`onchain-pending`).
+ *   2. Direct on-chain invites (`onchain-pending`, or `redeemed` once the
+ *      invitee has committed at the invitee hop).
  *   3. Pending local links not yet redeemed (`link-active`, revocable).
  *   4. Empty rows padding up to `totalSlots`.
  *
@@ -59,6 +63,9 @@ export function buildSlotRows(args: BuildSlotRowsArgs): BuildSlotRowsResult {
   const rows: Array<{ slot: Omit<SlotData, 'id'>; link?: StoredInviteLink }> = []
   const redeemedNonces = new Set<number>()
 
+  // `joinedAt` on redeemed rows is the link's creation time (`createdAt`, unix
+  // seconds): events carry no timestamps, so the true redemption time isn't
+  // available here without an extra block lookup.
   // 1a. On-chain redemptions (have a redeemer address). Stable order by nonce.
   for (const nonce of [...linkRedemptions.keys()].sort((a, b) => a - b)) {
     const redeemedBy = linkRedemptions.get(nonce)
@@ -69,7 +76,7 @@ export function buildSlotRows(args: BuildSlotRowsArgs): BuildSlotRowsResult {
         redeemedBy,
         isSelf: isSelf(redeemedBy),
         inviteeHop,
-        joinedAt: matchedLink ? new Date(matchedLink.createdAt) : undefined,
+        joinedAt: matchedLink ? new Date(matchedLink.createdAt * 1000) : undefined,
       },
     })
     redeemedNonces.add(nonce)
@@ -81,7 +88,7 @@ export function buildSlotRows(args: BuildSlotRowsArgs): BuildSlotRowsResult {
         slot: {
           status: 'redeemed',
           inviteeHop,
-          joinedAt: new Date(link.createdAt),
+          joinedAt: new Date(link.createdAt * 1000),
         },
       })
       redeemedNonces.add(link.nonce)
@@ -89,8 +96,20 @@ export function buildSlotRows(args: BuildSlotRowsArgs): BuildSlotRowsResult {
   }
 
   // 2. Direct on-chain invites.
+  // Kept in this position once joined so slot ids stay stable.
   for (const invitedAddress of directInvitedAddresses) {
-    rows.push({ slot: { status: 'onchain-pending', invitedAddress, isSelf: isSelf(invitedAddress) } })
+    if (args.committedInvitees?.has(invitedAddress.toLowerCase())) {
+      rows.push({
+        slot: {
+          status: 'redeemed',
+          redeemedBy: invitedAddress,
+          isSelf: isSelf(invitedAddress),
+          inviteeHop,
+        },
+      })
+    } else {
+      rows.push({ slot: { status: 'onchain-pending', invitedAddress, isSelf: isSelf(invitedAddress) } })
+    }
   }
 
   // 3. Pending local links not yet redeemed.

@@ -157,7 +157,7 @@ export interface InviteHopFocusChromeProps {
     ensName?: string,
   ) => Promise<{ id: number; address: string; ensName?: string } | void>
   onCopy?: (id: number, link: string) => void
-  onRevoke?: (id: number) => void | Promise<void>
+  onRevoke?: (id: number, link?: string) => void | Promise<void>
   onConfirmCreated?: (id: number) => void
   onDiscardCreated?: (id: number) => void
   copiedInviteId?: number | null

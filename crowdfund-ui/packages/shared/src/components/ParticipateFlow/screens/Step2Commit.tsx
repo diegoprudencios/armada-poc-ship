@@ -484,7 +484,7 @@ function SingleHopVariant({
         <Button
           variant="primary"
           size="lg"
-          label={hasNewAmount ? 'Review' : 'Insert amount'}
+          label={hasNewAmount ? 'Review' : 'Input amount'}
           showIcon={false}
           className={amount < MIN_COMMIT_USD || overBalance ? styles.ctaBlocked : undefined}
           aria-disabled={amount < MIN_COMMIT_USD || overBalance || undefined}
@@ -785,7 +785,7 @@ function MultiHopVariant({
         <Button
           variant="primary"
           size="lg"
-          label={totalNew > 0 ? 'Review' : 'Insert amount'}
+          label={totalNew > 0 ? 'Review' : 'Input amount'}
           showIcon={false}
           className={!canReview ? styles.ctaBlocked : undefined}
           aria-disabled={!canReview || undefined}

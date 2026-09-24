@@ -12,11 +12,12 @@ export interface InviteSectionLike {
     slots: SlotData[]
     onGenerateLink: (slotId: number) => Promise<void> | Promise<unknown>
     onRevoke: (slotId: number) => void
+    /** Resolves true only once the invite is confirmed on-chain. */
     onInviteOnchain: (
       slotId: number,
       address: string,
       ensName?: string,
-    ) => Promise<void> | Promise<unknown>
+    ) => Promise<boolean>
     isWrongNetwork?: boolean
     onSwitchNetwork?: () => void
   }
@@ -71,4 +72,56 @@ export function sectionForInviteeHop(
 export function firstEmptySlotId(section: InviteSectionLike): number | null {
   const empty = section.config.slots.find((slot) => slot.status === 'empty')
   return empty?.id ?? null
+}
+
+/**
+ * Revoke the invite link with this URL through the section that currently
+ * holds it. Resolves by URL (unique per link nonce) rather than a slot id a
+ * caller captured earlier: live rows re-sort as on-chain invites land, so a
+ * stale slot id can point at a different pending link. Returns false (and
+ * revokes nothing) when no section holds the link.
+ */
+export function revokeLinkViaSections(
+  sections: ReadonlyArray<InviteSectionLike>,
+  link: string,
+): boolean {
+  for (const section of sections) {
+    const slot = section.config.slots.find((s) => s.link === link)
+    if (slot) {
+      section.config.onRevoke(slot.id)
+      return true
+    }
+  }
+  return false
+}
+
+/**
+ * Send an on-chain invite through the section that feeds `inviteeHop`.
+ * Resolves with the created invite only when the section confirms it was sent;
+ * undefined when nothing was sent (wrong network, no empty slot, rejected,
+ * reverted, or still pending) so callers never show a false success.
+ *
+ * `onBeforeSend` receives the slot id just before the send starts. The
+ * section can surface the new row (e.g. from receipt logs) before the send
+ * resolves, so callers that defer showing it must hide it here, not after.
+ */
+export async function inviteOnchainViaSections(
+  sections: ReadonlyArray<InviteSectionLike>,
+  inviteeHop: InviteeHop,
+  address: string,
+  ensName?: string,
+  onBeforeSend?: (slotId: number) => void,
+): Promise<{ id: number; address: string; ensName?: string } | undefined> {
+  const section = sectionForInviteeHop(sections, inviteeHop)
+  if (!section) return undefined
+  if (section.config.isWrongNetwork) {
+    section.config.onSwitchNetwork?.()
+    return undefined
+  }
+  const emptyId = firstEmptySlotId(section)
+  if (emptyId == null) return undefined
+  onBeforeSend?.(emptyId)
+  const sent = await section.config.onInviteOnchain(emptyId, address, ensName)
+  if (!sent) return undefined
+  return { id: emptyId, address, ensName }
 }

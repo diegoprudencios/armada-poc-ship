@@ -19,9 +19,12 @@ import { InvitesCard } from '../MyPosition/InvitesCard'
 import {
   allowanceFromInviteSections,
   firstEmptySlotId,
+  inviteOnchainViaSections,
   issuedSlotsFromInviteSections,
+  revokeLinkViaSections,
   sectionForInviteeHop,
 } from '../MyPosition/inviteSectionsToCard'
+import { createDeferredInviteHides } from '../MyPosition/deferredInviteHides'
 import { nextInviteId, type InviteAllowance, type InviteeHop } from '../MyPosition/inviteModel'
 import {
   ARM_ALLOCATION,
@@ -75,11 +78,13 @@ export interface CrowdfundInviteSlotConfig {
   >
   onCopy: (slotId: number, link: string) => void
   onRevoke: (slotId: number) => void
+  /** Resolves true only once the invite tx is confirmed; false when it was
+   *  not sent (wrong network, rejected, reverted, or still pending). */
   onInviteOnchain: (
     slotId: number,
     address: string,
     ensName?: string,
-  ) => Promise<void>
+  ) => Promise<boolean>
   /**
    * Real ENS resolver forwarded to each `<SlotCard resolveEns={…} />`. Omit to
    * let SlotCard use its internal mock (showcase / preview only — returns a
@@ -136,8 +141,10 @@ export type CrowdfundExperienceLiveData =
        *  Omit entirely to fall back to the primitive's mockup default.
        *  Prefer `endsAt` when available so Progress can live-tick under 48h. */
       daysLeftLabel?: string | null
-      /** Absolute commit-window end (unix seconds). When set, Progress owns a
-       *  live HH:MM:SS counter for remaining &lt; 48h. */
+      /** Commit-window end on the device clock (unix seconds) — the chain's
+       *  remaining time anchored to local time, so a skewed device clock
+       *  doesn't desync the counter from chain-time gating. When set, Progress
+       *  owns a live HH:MM:SS counter for remaining &lt; 48h. */
       windowEndUnix?: number
       /** Exact-time detail for the Progress countdown tag's hover tooltip
        *  (e.g. "Ends Jun 14, 2:42 PM"). Omit for no tooltip. */
@@ -569,8 +576,9 @@ export function CrowdfundExperience({
   const [demoSlots, setDemoSlots] = useState<SlotData[]>(() => DEMO_SLOTS)
   const [demoAllowance] = useState<InviteAllowance>(DEMO_INVITE_ALLOWANCE)
   const pendingInvitesRef = useRef<Map<number, SlotData>>(new Map())
-  const deferredHideLinksRef = useRef<Set<string>>(new Set())
-  const deferredHideAddressesRef = useRef<Set<string>>(new Set())
+  // Live invites hidden from the sent list until their create confirmation is
+  // dismissed — keyed by created id, since the live row can land at another slot id.
+  const [deferredHides] = useState(createDeferredInviteHides)
   const [deferredHideEpoch, bumpDeferredHide] = useState(0)
 
   const handleInviteListOpenChange = useCallback((open: boolean) => {
@@ -787,11 +795,7 @@ export function CrowdfundExperience({
       return [...pendingInvitesRef.current.values(), ...demoSlots]
     }
     return liveIssuedSlots.map((slot) => {
-      const hideLink = slot.link != null && deferredHideLinksRef.current.has(slot.link)
-      const hideAddr =
-        slot.invitedAddress != null &&
-        deferredHideAddressesRef.current.has(slot.invitedAddress.toLowerCase())
-      if (!hideLink && !hideAddr) return slot
+      if (!deferredHides.isHidden(slot)) return slot
       return { ...slot, hideFromList: true }
     })
   }, [liveSections, liveIssuedSlots, demoSlots, deferredHideEpoch])
@@ -831,7 +835,7 @@ export function CrowdfundExperience({
           created.expiresAt instanceof Date &&
           typeof created.id === 'number'
         ) {
-          deferredHideLinksRef.current.add(created.link)
+          deferredHides.hide(created.id, { link: created.link })
           bumpDeferredHide((n) => n + 1)
           return {
             id: created.id,
@@ -866,17 +870,14 @@ export function CrowdfundExperience({
     setTimeout(() => setCopiedId((cur) => (cur === slotId ? null : cur)), 2000)
   }
 
-  const handleRevoke = async (inviteId: number) => {
+  const handleRevoke = async (inviteId: number, link?: string) => {
     if (liveSections) {
-      for (const section of liveSections) {
-        const slot = section.config.slots.find((s) => s.id === inviteId)
-        if (slot) {
-          section.config.onRevoke(inviteId)
-          if (slot.link) deferredHideLinksRef.current.delete(slot.link)
-          bumpDeferredHide((n) => n + 1)
-          return
-        }
-      }
+      // Live rows re-sort as on-chain invites land, so `inviteId` can point at
+      // a different pending link — only ever revoke by the link itself.
+      if (!link) return
+      revokeLinkViaSections(liveSections, link)
+      deferredHides.unhideLink(link)
+      bumpDeferredHide((n) => n + 1)
       return
     }
     pendingInvitesRef.current.delete(inviteId)
@@ -897,18 +898,7 @@ export function CrowdfundExperience({
   const revealInviteInList = (id: number) => {
     const draft = pendingInvitesRef.current.get(id)
     pendingInvitesRef.current.delete(id)
-    if (draft?.link) deferredHideLinksRef.current.delete(draft.link)
-    if (draft?.invitedAddress) {
-      deferredHideAddressesRef.current.delete(draft.invitedAddress.toLowerCase())
-    }
-    for (const slot of liveIssuedSlots) {
-      if (slot.id === id) {
-        if (slot.link) deferredHideLinksRef.current.delete(slot.link)
-        if (slot.invitedAddress) {
-          deferredHideAddressesRef.current.delete(slot.invitedAddress.toLowerCase())
-        }
-      }
-    }
+    deferredHides.reveal(id)
     bumpDeferredHide((n) => n + 1)
     if (!draft) return
     setDemoSlots((prev) => {
@@ -924,7 +914,9 @@ export function CrowdfundExperience({
   const discardDeferredInvite = (id: number) => {
     pendingInvitesRef.current.delete(id)
     if (liveSections) {
-      void handleRevoke(id)
+      const link = deferredHides.keyFor(id)?.link
+      if (link) void handleRevoke(id, link)
+      deferredHides.reveal(id)
     } else {
       setDemoSlots((prev) => prev.filter((slot) => slot.id !== id))
     }
@@ -934,8 +926,7 @@ export function CrowdfundExperience({
   const flushPendingInvites = () => {
     const drafts = [...pendingInvitesRef.current.values()]
     pendingInvitesRef.current.clear()
-    deferredHideLinksRef.current.clear()
-    deferredHideAddressesRef.current.clear()
+    deferredHides.clear()
     bumpDeferredHide((n) => n + 1)
     if (drafts.length === 0) return
     setDemoSlots((prev) => {
@@ -954,18 +945,25 @@ export function CrowdfundExperience({
     setLoadingHop(hop)
     try {
       if (liveSections) {
-        const section = sectionForInviteeHop(liveSections, hop)
-        if (!section) return
-        if (section.config.isWrongNetwork) {
-          section.config.onSwitchNetwork?.()
+        // Hide before sending: the row lands (via receipt logs) before the
+        // send resolves, so hiding afterwards would flash it in the list.
+        let hiddenId: number | null = null
+        const created = await inviteOnchainViaSections(
+          liveSections,
+          hop,
+          address,
+          ensName,
+          (slotId) => {
+            hiddenId = slotId
+            deferredHides.hide(slotId, { address })
+          },
+        )
+        if (!created) {
+          if (hiddenId != null) deferredHides.reveal(hiddenId)
+          bumpDeferredHide((n) => n + 1)
           return
         }
-        const emptyId = firstEmptySlotId(section)
-        if (emptyId == null) return
-        await section.config.onInviteOnchain(emptyId, address, ensName)
-        deferredHideAddressesRef.current.add(address.toLowerCase())
-        bumpDeferredHide((n) => n + 1)
-        return { id: emptyId, address, ensName }
+        return created
       }
 
       await new Promise((r) => setTimeout(r, 800))
@@ -1182,7 +1180,13 @@ export function CrowdfundExperience({
                     className={mpStyles.headerCta}
                     variant="gradient"
                     size="sm"
-                    label={myPositionEmptyKind === null ? 'Commit again' : 'Participate'}
+                    // Invited-but-uncommitted wallets are 'ready' with zero
+                    // committed — they haven't participated yet.
+                    label={
+                      myPositionEmptyKind === null && myPositionCommittedUsd > 0
+                        ? 'Commit again'
+                        : 'Participate'
+                    }
                     showIcon
                     icon="arrow-right-micro"
                     onClick={onParticipate}

@@ -67,7 +67,9 @@ export interface InvitesCardProps {
     hop: InviteeHop,
   ) => Promise<{ id: number; link: string; expiresAt: Date } | void>
   onCopy: (inviteId: number, link: string) => void
-  onRevoke: (inviteId: number) => void | Promise<void>
+  /** `link` identifies the invite link to revoke — prefer it over `inviteId`,
+   *  which can go stale as live rows re-sort. */
+  onRevoke: (inviteId: number, link?: string) => void | Promise<void>
   onConfirmCreated?: (inviteId: number) => void
   onDiscardCreated?: (inviteId: number) => void
   /** Commit deferred invites when leaving the panel mid-confirmation. */
@@ -203,6 +205,10 @@ export function InvitesCard({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const timersRef = useRef<number[]>([])
   const shortCardRafRef = useRef(0)
+  // Latest flush handler, read by the panel-deactivation effect so a parent
+  // passing a fresh closure each render doesn't re-trigger the flush.
+  const onFlushPendingRef = useRef(onFlushPending)
+  onFlushPendingRef.current = onFlushPending
   const focusApi = useInviteHopFocus()
   const listId = useId()
   const listBodyId = useId()
@@ -424,9 +430,9 @@ export function InvitesCard({
   useEffect(() => {
     if (!panelActive) {
       resetListAnimation()
-      onFlushPending?.()
+      onFlushPendingRef.current?.()
     }
-  }, [panelActive, resetListAnimation, onFlushPending])
+  }, [panelActive, resetListAnimation])
 
   // Hide entire component when the user has no invite rights at any hop.
   if (allowance && hopRows.length === 0 && !isActionView) {
@@ -894,7 +900,7 @@ interface InviteListRowProps {
   index: number
   copied: boolean
   onCopy: (id: number, link: string) => void
-  onRevoke: (id: number) => void | Promise<void>
+  onRevoke: (id: number, link?: string) => void | Promise<void>
   onView?: (address: string) => void
 }
 
@@ -1064,7 +1070,7 @@ function InviteListRow({
   const handleConfirmRevoke = async () => {
     setRevoking(true)
     try {
-      await onRevoke(invite.id)
+      await onRevoke(invite.id, invite.link)
     } finally {
       setRevoking(false)
       setRevokeConfirmOpen(false)
