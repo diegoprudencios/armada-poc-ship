@@ -1,6 +1,7 @@
 // ABOUTME: Invite landing card — full-bleed fleet image + hop pill + Join CTA. Supports `default` (modal) and `landing` (full-page invite) variants.
-// ABOUTME: Ported from the armada-crowdfund mockup; fleet asset is ESM-imported so it bundles with crowdfund-shared.
+// ABOUTME: Ported from the armada-crowdfund demo (brand eyebrow, left-aligned time-left tag); fleet asset is ESM-imported so it bundles with crowdfund-shared.
 
+import { Tag } from '@armada/ui'
 import HopPill, { type HopVariant } from '../../../HopPill/HopPill'
 import hopPillStyles from '../../../HopPill/HopPill.module.css'
 import JoinButton from '../../../JoinButton/JoinButton'
@@ -72,22 +73,20 @@ export default function Step0Invite({
       />
       <div className={styles.overlay} />
       <div className={[styles.content, isLanding && styles.contentLanding].filter(Boolean).join(' ')}>
-        <div className={styles.meta}>
-          <span className={styles.metaLabel}>ARMADA CROWDFUND</span>
-          <span className={styles.metaLabel}>{timeLeftLabel}</span>
+        <div className={styles.top}>
+          <p className={styles.brandEyebrow}>Armada Crowdfund</p>
+          <h1 className={styles.headline}>You are invited to join the fleet</h1>
+          {inviteExpiryLabel && <p className={styles.inviteExpiry}>{inviteExpiryLabel}</p>}
+          <div className={styles.metaTag}>
+            <Tag label={timeLeftLabel} />
+          </div>
         </div>
-        <div className={styles.bottom}>
-          <div className={styles.copy}>
-            <h1 className={styles.headline}>You are invited to join the fleet</h1>
-            {inviteExpiryLabel && <p className={styles.inviteExpiry}>{inviteExpiryLabel}</p>}
-          </div>
-          <div className={[styles.footer, isLanding && styles.footerLanding].filter(Boolean).join(' ')}>
-            <HopPill
-              variant={hopVariant}
-              className={isLanding ? hopPillStyles.landing : undefined}
-            />
-            <JoinButton onClick={onJoin} size={isLanding ? 'lg' : 'md'} />
-          </div>
+        <div className={[styles.footer, isLanding && styles.footerLanding].filter(Boolean).join(' ')}>
+          <HopPill
+            variant={hopVariant}
+            className={isLanding ? hopPillStyles.landing : undefined}
+          />
+          <JoinButton onClick={onJoin} size={isLanding ? 'lg' : 'md'} />
         </div>
       </div>
     </div>

@@ -172,6 +172,8 @@ export default function StepBeforeYouStart({
     <div className={styles.shell} data-flow-shell>
       <div className={styles.chromeRow}>
         <FlowChrome
+          title="Before you start"
+          titleId="before-start-title"
           showBack={showBack}
           onBack={onBack}
           onClose={onClose}
@@ -180,53 +182,56 @@ export default function StepBeforeYouStart({
 
       <div className={styles.contentWrap}>
         <div className={styles.content}>
-          <header className={styles.header}>
-            <p className={styles.eyebrow}>Before you start</p>
-            <h2 id="before-start-title" className={styles.title}>
+          <section className={styles.block} aria-labelledby="before-start-steps">
+            <h3 id="before-start-steps" className={styles.blockHeading}>
               How to participate
-            </h2>
-          </header>
+            </h3>
+            <ol className={styles.stepCards} aria-labelledby="before-start-steps">
+              {NEXT_STEPS.map((item, index) => (
+                <li key={item.label} className={styles.stepCard}>
+                  <span className={styles.stepNumber} aria-hidden>
+                    {index + 1}
+                  </span>
+                  <div className={styles.stepCopy}>
+                    <span className={styles.stepLabel}>{item.label}</span>
+                    <span className={styles.stepHint}>{item.hint}</span>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </section>
 
-          <ol className={styles.stepCards} aria-labelledby="before-start-title">
-            {NEXT_STEPS.map((item, index) => (
-              <li key={item.label} className={styles.stepCard}>
-                <span className={styles.stepNumber} aria-hidden>
-                  {index + 1}
+          <section className={styles.block} aria-labelledby="before-start-details">
+            <h3 id="before-start-details" className={styles.blockHeading}>
+              Your details
+            </h3>
+            <div className={styles.factsCard}>
+              <div className={styles.factRow}>
+                <span className={styles.factLabel}>Address</span>
+                <span className={styles.factValue} title={walletAddress}>
+                  {display}
                 </span>
-                <div className={styles.stepCopy}>
-                  <span className={styles.stepLabel}>{item.label}</span>
-                  <span className={styles.stepHint}>{item.hint}</span>
-                </div>
-              </li>
-            ))}
-          </ol>
-
-          <div className={styles.factsCard}>
-            <div className={styles.factRow}>
-              <span className={styles.factLabel}>Address</span>
-              <span className={styles.factValue} title={walletAddress}>
-                {display}
-              </span>
+              </div>
+              <div className={styles.divider} aria-hidden />
+              <div className={styles.factRow}>
+                <span className={styles.factLabel}>Your position</span>
+                <span className={styles.hopTag}>
+                  <span className={styles.hopDot} style={hopDotStyle} aria-hidden />
+                  <span className={styles.factValue}>{HOP_TAG_LABEL[hopVariant]}</span>
+                </span>
+              </div>
+              <div className={styles.divider} aria-hidden />
+              <div className={styles.factRow}>
+                <span className={styles.factLabel}>Hop limit</span>
+                <span className={styles.factValue}>{formatUsdc(capUsdc)} USDC</span>
+              </div>
+              <div className={styles.divider} aria-hidden />
+              <div className={styles.factRow}>
+                <span className={styles.factLabel}>Window closes</span>
+                <span className={styles.factValue}>{windowClosesLabel}</span>
+              </div>
             </div>
-            <div className={styles.divider} aria-hidden />
-            <div className={styles.factRow}>
-              <span className={styles.factLabel}>Your position</span>
-              <span className={styles.hopTag}>
-                <span className={styles.hopDot} style={hopDotStyle} aria-hidden />
-                <span className={styles.factValue}>{HOP_TAG_LABEL[hopVariant]}</span>
-              </span>
-            </div>
-            <div className={styles.divider} aria-hidden />
-            <div className={styles.factRow}>
-              <span className={styles.factLabel}>Hop limit</span>
-              <span className={styles.factValue}>{formatUsdc(capUsdc)} USDC</span>
-            </div>
-            <div className={styles.divider} aria-hidden />
-            <div className={styles.factRow}>
-              <span className={styles.factLabel}>Window closes</span>
-              <span className={styles.factValue}>{windowClosesLabel}</span>
-            </div>
-          </div>
+          </section>
 
           <section className={styles.block} aria-labelledby="before-start-know">
             <h3 id="before-start-know" className={styles.blockHeading}>
@@ -244,28 +249,33 @@ export default function StepBeforeYouStart({
             </ul>
           </section>
 
-          <nav className={styles.resourceNav} aria-label="Useful links">
-            <ul className={styles.iconLinkList}>
-              {RESOURCE_LINKS.map(({ label, href, Icon }) => (
-                <li key={href} className={styles.iconLinkItem}>
-                  <a
-                    className={styles.iconLink}
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <span className={styles.iconTile}>
-                      <Icon className={styles.brandIcon} aria-hidden />
-                      <span className={styles.iconLabel}>
-                        {label}
-                        <span className={styles.visuallyHidden}> (opens in a new tab)</span>
+          <section className={styles.block} aria-labelledby="before-start-links">
+            <h3 id="before-start-links" className={styles.blockHeading}>
+              Useful links
+            </h3>
+            <nav className={styles.resourceNav} aria-label="Useful links">
+              <ul className={styles.iconLinkList}>
+                {RESOURCE_LINKS.map(({ label, href, Icon }) => (
+                  <li key={href} className={styles.iconLinkItem}>
+                    <a
+                      className={styles.iconLink}
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <span className={styles.iconTile}>
+                        <Icon className={styles.brandIcon} aria-hidden />
+                        <span className={styles.iconLabel}>
+                          {label}
+                          <span className={styles.visuallyHidden}> (opens in a new tab)</span>
+                        </span>
                       </span>
-                    </span>
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </nav>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          </section>
         </div>
         <div className={styles.contentFade} aria-hidden />
       </div>

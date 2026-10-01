@@ -315,6 +315,9 @@ export type {
   CrowdfundSnapshot,
 } from './lib/mockParticipants.js'
 
+export { UsefulLinks } from './components/UsefulLinks/UsefulLinks.js'
+export type { UsefulLinksProps } from './components/UsefulLinks/UsefulLinks.js'
+
 export {
   Step0Invite,
   Step1Wallet,

@@ -121,6 +121,30 @@ describe('ClaimFlowV2 account switch', () => {
   })
 })
 
+describe('ClaimFlowV2 refund intro + done table', () => {
+  it('refund intro claims directly (no Review step) with the min-fund lead', async () => {
+    commitmentFor = (_addr, hop) => Promise.resolve(hop === 0 ? 500_000_000n : 0n)
+
+    renderClaim(<ClaimFlowV2 {...baseProps} phase={2} totalCommitted={0n} walletAddress={ADDR_A} />)
+
+    expect(await screen.findByText('Claim your USDC refund')).toBeTruthy()
+    expect(screen.getByText(/security council/i)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Start' })).toBeNull()
+    expect(screen.getByRole('button', { name: /Claim .*refund/ })).toBeTruthy()
+  })
+
+  it('done screen folds destination + useful links into one summary', async () => {
+    claimedFor = () => Promise.resolve(true)
+    commitmentFor = (_addr, hop) => Promise.resolve(hop === 0 ? 500_000_000n : 0n)
+
+    renderClaim(<ClaimFlowV2 {...baseProps} phase={2} totalCommitted={0n} walletAddress={ADDR_A} />)
+
+    expect(await screen.findByText('USDC refund claimed')).toBeTruthy()
+    expect(screen.getByText('Destination address')).toBeTruthy()
+    expect(screen.getByRole('navigation', { name: 'Useful links' })).toBeTruthy()
+  })
+})
+
 describe('ClaimFlowV2 delegate field', () => {
   it('stays empty after the user clears it (no auto-refill once edited)', async () => {
     claimedFor = () => Promise.resolve(false)

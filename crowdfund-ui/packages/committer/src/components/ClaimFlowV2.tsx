@@ -1,18 +1,17 @@
-// ABOUTME: Claim flow — Intro → Delegate → Review → Submit → Done (ARM), or Intro → Review → Submit → Done (refund).
+// ABOUTME: Claim flow — Intro → Delegate → Review → Submit → Done (ARM), or Intro → Submit → Done (refund).
 // ABOUTME: Crowdfund ClaimFlow UX (FlowChrome) wired to live on-chain claim/refund, ENS resolve, pending-tx, and in-flight reconstruct.
 
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Contract, ZeroAddress, type Signer, type JsonRpcProvider } from 'ethers'
 import {
-  CheckIcon,
-  ClipboardDocumentIcon,
   InformationCircleIcon,
   MagnifyingGlassIcon,
 } from '@heroicons/react/24/outline'
 import { CheckCircleIcon } from '@heroicons/react/24/solid'
 import {
   FlowChrome,
+  UsefulLinks,
   WalletConfirmStep,
   type Step4Transaction,
   type ReceiptLogLike,
@@ -53,11 +52,6 @@ const ARM_CLAIM_STEPS = [
   { label: 'Confirm', hint: 'Approve claim in your wallet' },
 ] as const
 
-const REFUND_CLAIM_STEPS = [
-  { label: 'Review', hint: 'Confirm your USDC refund' },
-  { label: 'Confirm', hint: 'Approve claim in your wallet' },
-] as const
-
 const ARM_KNOW_ITEMS = [
   'You’ll need a little ETH in this wallet for gas.',
   'A single transaction delivers your ARM and sets your delegate.',
@@ -67,9 +61,17 @@ const ARM_KNOW_ITEMS = [
 
 const REFUND_KNOW_ITEMS = [
   'You’ll need a little ETH in this wallet for gas.',
-  'The sale ended under the minimum fund, so no ARM was sold.',
   'Your full committed USDC is returned in one transaction.',
 ] as const
+
+const ARM_INTRO_LEAD =
+  'The crowdfund completed successfully. It’s time to claim your ARM tokens and set your delegate.'
+
+const REFUND_INTRO_LEAD_MIN_FUND =
+  'The crowdfund ended under the minimum fund, so no ARM was sold. Your full committed USDC is available to claim back.'
+
+const REFUND_INTRO_LEAD_CANCELLED =
+  'The sale was cancelled by the security council. Your full committed USDC is available to claim back.'
 
 /** Loose ENS prefilter — drives the "should we kick off resolution?" branch.
  *  Strict charset validation lives in `isValidEnsName`; this looser check still
@@ -166,7 +168,6 @@ export function ClaimFlowV2(props: ClaimFlowV2Props) {
     const marker = getClaimInFlight(walletAddress)
     return marker?.hash ?? null
   })
-  const [armAddressCopied, setArmAddressCopied] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const runningRef = useRef(false)
   // Once the user edits the delegate input, stop auto-filling it from the
@@ -588,7 +589,7 @@ export function ClaimFlowV2(props: ClaimFlowV2Props) {
     if (result.outcome === 'rejected') {
       // Quiet — the user declined; return to review without a red error row.
       setTxs(null)
-      setStep('review')
+      setStep(mode === 'refund' ? 'intro' : 'review')
       return
     }
     // reverted / timeout / error
@@ -684,16 +685,8 @@ export function ClaimFlowV2(props: ClaimFlowV2Props) {
         refundAmount={refundAmount}
         armTokenAddress={armTokenAddress ?? null}
         claimTxHash={claimTxHash}
-        armAddressCopied={armAddressCopied}
-        onCopyArmAddress={() => {
-          if (!armTokenAddress) return
-          void navigator.clipboard.writeText(armTokenAddress)
-          setArmAddressCopied(true)
-          window.setTimeout(() => setArmAddressCopied(false), 1600)
-        }}
+        walletAddress={walletAddress}
         onClose={handleClose}
-        onGoToMyPosition={onGoToMyPosition}
-        onGoToNetwork={onGoToNetwork}
       />
     )
   }
@@ -858,7 +851,7 @@ export function ClaimFlowV2(props: ClaimFlowV2Props) {
         onBack={() => {
           clearClaimInFlight()
           setTxs(null)
-          setStep('review')
+          setStep(mode === 'refund' ? 'intro' : 'review')
         }}
         onClose={handleClose}
       >
@@ -867,7 +860,7 @@ export function ClaimFlowV2(props: ClaimFlowV2Props) {
           onBack={() => {
             clearClaimInFlight()
             setTxs(null)
-            setStep('review')
+            setStep(mode === 'refund' ? 'intro' : 'review')
           }}
           onRetry={() => {
             clearClaimInFlight()
@@ -879,67 +872,32 @@ export function ClaimFlowV2(props: ClaimFlowV2Props) {
     )
   }
 
-  if (step === 'intro') {
-    const claimSteps = mode === 'arm' ? ARM_CLAIM_STEPS : REFUND_CLAIM_STEPS
-    const knowList = mode === 'arm' ? ARM_KNOW_ITEMS : REFUND_KNOW_ITEMS
+  if (step === 'intro' && mode === 'refund') {
+    const refundLead =
+      phase === 2 ? REFUND_INTRO_LEAD_CANCELLED : REFUND_INTRO_LEAD_MIN_FUND
 
     return (
       <CardFlowShell
-        title={mode === 'arm' ? 'Claim your ARM tokens' : 'Claim your USDC refund'}
+        title="Claim your USDC refund"
         titleId="claim-intro-title"
+        titleAlign="start"
         showBack={false}
         onClose={handleClose}
       >
         <div className={styles.introWrap}>
           <div className={styles.introScroll}>
-            <ol
-              className={[
-                styles.stepCards,
-                claimSteps.length === 2 ? styles.stepCardsTwo : undefined,
-              ]
-                .filter(Boolean)
-                .join(' ')}
-              aria-labelledby="claim-intro-title"
-            >
-              {claimSteps.map((item, index) => (
-                <li key={item.label} className={styles.stepCard}>
-                  <span className={styles.stepNumber} aria-hidden>
-                    {index + 1}
-                  </span>
-                  <div className={styles.stepCopy}>
-                    <span className={styles.stepLabel}>{item.label}</span>
-                    <span className={styles.stepHint}>{item.hint}</span>
-                  </div>
-                </li>
-              ))}
-            </ol>
+            <p className={styles.introLead}>{refundLead}</p>
 
             <div className={styles.factsCard}>
-              {mode === 'arm' ? (
-                <>
-                  <div className={styles.factRow}>
-                    <span className={styles.factLabel}>ARM allocation</span>
-                    <span className={styles.factValueAccent}>{armDisplay}</span>
-                  </div>
-                  <div className={styles.divider} aria-hidden />
-                  <div className={styles.factRow}>
-                    <span className={styles.factLabel}>Final commit</span>
-                    <span className={styles.factValue}>{finalCommitDisplay}</span>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className={styles.factRow}>
-                    <span className={styles.factLabel}>USDC refund</span>
-                    <span className={styles.factValueAccent}>{refundDisplay}</span>
-                  </div>
-                  <div className={styles.divider} aria-hidden />
-                  <div className={styles.factRow}>
-                    <span className={styles.factLabel}>Final commit</span>
-                    <span className={styles.factValue}>{finalCommitDisplay}</span>
-                  </div>
-                </>
-              )}
+              <div className={styles.factRow}>
+                <span className={styles.factLabel}>USDC refund</span>
+                <span className={styles.factValueAccent}>{refundDisplay}</span>
+              </div>
+              <div className={styles.divider} aria-hidden />
+              <div className={styles.factRow}>
+                <span className={styles.factLabel}>Final commit</span>
+                <span className={styles.factValue}>{finalCommitDisplay}</span>
+              </div>
             </div>
 
             <section className={styles.knowBlock} aria-labelledby="claim-intro-know">
@@ -947,7 +905,87 @@ export function ClaimFlowV2(props: ClaimFlowV2Props) {
                 What to know
               </h3>
               <ul className={styles.knowList}>
-                {knowList.map((text) => (
+                {REFUND_KNOW_ITEMS.map((text) => (
+                  <li key={text} className={styles.knowItem}>
+                    <span className={styles.knowBullet} aria-hidden>
+                      ·
+                    </span>
+                    <span>{text}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </div>
+          <div className={styles.introFade} aria-hidden />
+        </div>
+        <div className={styles.buttonRow}>
+          <ArmadaButton
+            variant="primary"
+            size="lg"
+            label={`Claim ${refundDisplay} refund`}
+            showIcon={false}
+            disabled={submitting}
+            onClick={() => {
+              setTxs(null)
+              setStep('submit')
+              void runClaim()
+            }}
+          />
+        </div>
+      </CardFlowShell>
+    )
+  }
+
+  if (step === 'intro') {
+    return (
+      <CardFlowShell
+        title="Claim your ARM tokens"
+        titleId="claim-intro-title"
+        titleAlign="start"
+        showBack={false}
+        onClose={handleClose}
+      >
+        <div className={styles.introWrap}>
+          <div className={styles.introScroll}>
+            <p className={styles.introLead}>{ARM_INTRO_LEAD}</p>
+
+            <div className={styles.factsCard}>
+              <div className={styles.factRow}>
+                <span className={styles.factLabel}>ARM allocation</span>
+                <span className={styles.factValueAccent}>{armDisplay}</span>
+              </div>
+              <div className={styles.divider} aria-hidden />
+              <div className={styles.factRow}>
+                <span className={styles.factLabel}>Final commit</span>
+                <span className={styles.factValue}>{finalCommitDisplay}</span>
+              </div>
+            </div>
+
+            <section className={styles.knowBlock} aria-labelledby="claim-intro-how">
+              <h3 id="claim-intro-how" className={styles.knowHeading}>
+                How to claim
+              </h3>
+              <ol className={styles.stepCards} aria-labelledby="claim-intro-how">
+                {ARM_CLAIM_STEPS.map((item, index) => (
+                  <li key={item.label} className={styles.stepCard}>
+                    <span className={styles.stepNumber} aria-hidden>
+                      {index + 1}
+                    </span>
+                    <div className={styles.stepCopy}>
+                      <span className={styles.stepLabel}>{item.label}</span>
+                      <span className={styles.stepHint}>{item.hint}</span>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </section>
+
+            <section className={styles.knowBlock} aria-labelledby="claim-intro-know">
+              <h3 id="claim-intro-know" className={styles.knowHeading}>
+                What to know
+              </h3>
+              <ul className={styles.knowList}>
+                {ARM_KNOW_ITEMS.map((text) => (
                   <li key={text} className={styles.knowItem}>
                     <span className={styles.knowBullet} aria-hidden>
                       ·
@@ -968,7 +1006,7 @@ export function ClaimFlowV2(props: ClaimFlowV2Props) {
             showIcon={false}
             onClick={() => {
               setDelegateScreen('choice')
-              setStep(mode === 'arm' ? 'delegate' : 'review')
+              setStep('delegate')
             }}
           />
         </div>
@@ -1147,43 +1185,7 @@ export function ClaimFlowV2(props: ClaimFlowV2Props) {
     )
   }
 
-  // Review
-  if (mode === 'refund') {
-    return (
-      <CardFlowShell title="Review" onBack={() => setStep('intro')} onClose={handleClose}>
-        <div className={styles.cardContent}>
-          <div className={styles.summaryCard}>
-            <div className={styles.summaryRow}>
-              <span className={styles.summaryLabel}>USDC refund</span>
-              <span className={styles.summaryValueAccent}>{refundDisplay}</span>
-            </div>
-          </div>
-          <div className={styles.warningBlock}>
-            <p className={styles.warningText}>
-              {phase === 2
-                ? 'The sale was cancelled by the security council. Your full committed USDC is available to claim back.'
-                : 'The sale ended below the minimum fund, so no ARM was sold. Your full committed USDC is available to claim back.'}
-            </p>
-          </div>
-        </div>
-        <div className={styles.buttonRow}>
-          <ArmadaButton
-            variant="primary"
-            size="lg"
-            label={`Claim ${refundDisplay} refund`}
-            showIcon={false}
-            disabled={submitting}
-            onClick={() => {
-              setTxs(null)
-              setStep('submit')
-              void runClaim()
-            }}
-          />
-        </div>
-      </CardFlowShell>
-    )
-  }
-
+  // ARM review (refund skips review — the claim CTA lives on the intro)
   const armHasRefund = refundAmount > 0n
   return (
     <CardFlowShell
@@ -1298,6 +1300,7 @@ function GateShell({ title, children }: { title: string; children: ReactNode }) 
 function CardFlowShell({
   title,
   titleId,
+  titleAlign = 'center',
   onBack,
   onClose,
   showBack = true,
@@ -1305,6 +1308,7 @@ function CardFlowShell({
 }: {
   title?: ReactNode
   titleId?: string
+  titleAlign?: 'center' | 'start'
   onBack?: () => void
   onClose?: () => void
   showBack?: boolean
@@ -1316,6 +1320,7 @@ function CardFlowShell({
         <FlowChrome
           title={title}
           titleId={titleId}
+          titleAlign={titleAlign}
           showBack={showBack && !!onBack}
           onBack={onBack}
           onClose={onClose}
@@ -1400,6 +1405,37 @@ function NothingToClaimScreen({
   )
 }
 
+/** Table value that links to the block explorer when one is configured, else plain text. */
+function ExplorerValue({
+  href,
+  display,
+  fullValue,
+}: {
+  href: string | null
+  display: string
+  fullValue: string
+}) {
+  if (!href) {
+    return (
+      <span className={styles.factValue} title={fullValue}>
+        {display}
+      </span>
+    )
+  }
+  return (
+    <a
+      className={styles.factValueLink}
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={fullValue}
+    >
+      {display}
+      <span className={styles.visuallyHidden}> (opens in a new tab)</span>
+    </a>
+  )
+}
+
 function DoneScreen({
   mode,
   armForfeited,
@@ -1408,11 +1444,8 @@ function DoneScreen({
   refundAmount,
   armTokenAddress,
   claimTxHash,
-  armAddressCopied,
-  onCopyArmAddress,
+  walletAddress,
   onClose,
-  onGoToMyPosition,
-  onGoToNetwork,
 }: {
   mode: ClaimMode
   /** The ARM claim deadline has passed — `claim()` delivered no ARM (forfeited),
@@ -1429,11 +1462,9 @@ function DoneScreen({
   refundAmount: bigint
   armTokenAddress: string | null
   claimTxHash: string | null
-  armAddressCopied: boolean
-  onCopyArmAddress: () => void
+  /** Connected wallet — the destination address row links to the explorer. */
+  walletAddress: string | null
   onClose: () => void
-  onGoToMyPosition: () => void
-  onGoToNetwork: () => void
 }) {
   // Same headline on first-success and on revisit — the action is idempotent
   // from the user's perspective, and "You already claimed" reads like an
@@ -1441,7 +1472,11 @@ function DoneScreen({
   const armHasRefund = mode === 'arm' && refundAmount > 0n
   const armForfeitedPath = mode === 'arm' && armForfeited
   const headline =
-    mode === 'arm' ? (armForfeited ? 'Claim complete.' : 'ARM claimed.') : 'Refund claimed.'
+    mode === 'arm'
+      ? armForfeited
+        ? 'Claim complete.'
+        : 'ARM claimed.'
+      : 'USDC refund claimed'
   const subline = armForfeitedPath ? (
     // Past the deadline: never assert ARM landed. Show the refund if there was one.
     armHasRefund ? (
@@ -1464,67 +1499,101 @@ function DoneScreen({
   )
 
   const explorerBase = getExplorerUrl()
+  const addressHref = (address: string) =>
+    explorerBase ? `${explorerBase}/address/${address}` : null
+  const txHref = (hash: string) => (explorerBase ? `${explorerBase}/tx/${hash}` : null)
+
+  // Single summary table: amount → destination (claim only) → tx hash → ARM contract.
+  const amountRows: Array<{ label: string; value: string }> = []
+  if (armForfeitedPath) {
+    if (armHasRefund) amountRows.push({ label: 'Amount claimed', value: `${refundDisplay} USDC` })
+  } else if (mode === 'arm') {
+    amountRows.push({ label: 'Amount claimed', value: armDisplay })
+    if (armHasRefund) amountRows.push({ label: 'USDC refund', value: `${refundDisplay} USDC` })
+  } else {
+    amountRows.push({ label: 'Amount claimed', value: `${refundDisplay} USDC` })
+  }
+
+  type FactRow = { key: string; label: string; content: ReactNode }
+  const rows: FactRow[] = amountRows.map((r) => ({
+    key: r.label,
+    label: r.label,
+    content: <span className={styles.factValueAccent}>{r.value}</span>,
+  }))
+  if (walletAddress) {
+    rows.push({
+      key: 'destination',
+      label: 'Destination address',
+      content: (
+        <ExplorerValue
+          href={addressHref(walletAddress)}
+          display={truncateMiddle(walletAddress)}
+          fullValue={walletAddress}
+        />
+      ),
+    })
+  }
+  if (claimTxHash) {
+    rows.push({
+      key: 'tx',
+      label: 'Tx hash',
+      content: (
+        <ExplorerValue
+          href={txHref(claimTxHash)}
+          display={truncateMiddle(claimTxHash)}
+          fullValue={claimTxHash}
+        />
+      ),
+    })
+  }
+  if (mode === 'arm' && armTokenAddress && !armForfeitedPath) {
+    rows.push({
+      key: 'arm-contract',
+      label: 'ARM contract address',
+      content: (
+        <ExplorerValue
+          href={addressHref(armTokenAddress)}
+          display={truncateMiddle(armTokenAddress)}
+          fullValue={armTokenAddress}
+        />
+      ),
+    })
+  }
 
   return (
-    <CardFlowShell showBack={false} onClose={onClose}>
-      <div className={styles.cardContent}>
-        <div className={styles.heroBlock}>
+    <CardFlowShell
+      showBack={false}
+      titleAlign="start"
+      titleId="claim-done-title"
+      title={
+        <>
           <CheckCircleIcon className={styles.successIcon} aria-hidden />
-          <h2 className={styles.headline}>{headline}</h2>
-          <p className={styles.subline}>{subline}</p>
-        </div>
-        {mode === 'arm' && armTokenAddress && !armForfeitedPath ? (
-          <div className={styles.contractRow}>
-            <div className={styles.contractRowText}>
-              <span className={styles.contractRowLabel}>ARM contract address</span>
-              <span className={styles.contractRowAddress} title={armTokenAddress}>
-                {truncateMiddle(armTokenAddress)}
-              </span>
+          {headline}
+        </>
+      }
+      onClose={onClose}
+    >
+      <div className={styles.introWrap}>
+        <div className={styles.introScroll}>
+          <p className={styles.introLead}>{subline}</p>
+
+          {rows.length > 0 ? (
+            <div className={styles.factsCard}>
+              {rows.map((row, i) => (
+                <Fragment key={row.key}>
+                  {i > 0 ? <div className={styles.divider} aria-hidden /> : null}
+                  <div className={styles.factRow}>
+                    <span className={styles.factLabel}>{row.label}</span>
+                    {row.content}
+                  </div>
+                </Fragment>
+              ))}
             </div>
-            <button
-              type="button"
-              className={styles.contractCopyBtn}
-              onClick={onCopyArmAddress}
-              aria-label={
-                armAddressCopied ? 'ARM contract address copied' : 'Copy ARM contract address'
-              }
-            >
-              {armAddressCopied ? (
-                <CheckIcon className={styles.contractCopyIcon} aria-hidden />
-              ) : (
-                <ClipboardDocumentIcon className={styles.contractCopyIcon} aria-hidden />
-              )}
-            </button>
-          </div>
-        ) : null}
-      </div>
-      <div className={styles.buttonRow}>
-        {claimTxHash && explorerBase ? (
-          <ArmadaButton
-            variant="secondary"
-            size="lg"
-            label="View on explorer"
-            showIcon={false}
-            onClick={() =>
-              window.open(`${explorerBase}/tx/${claimTxHash}`, '_blank', 'noopener,noreferrer')
-            }
-          />
-        ) : (
-          <ArmadaButton
-            variant="secondary"
-            size="lg"
-            label="View my position"
-            showIcon={false}
-            onClick={onGoToMyPosition}
-          />
-        )}
-        <ArmadaButton
-          variant="primary"
-          size="lg"
-          label="Close"
-          showIcon={false}
-          onClick={onGoToNetwork}
-        />
+          ) : null}
+
+          <UsefulLinks headingId="claim-done-useful-links" />
+        </div>
+        <div className={styles.introFade} aria-hidden />
       </div>
     </CardFlowShell>
   )

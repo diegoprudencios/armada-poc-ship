@@ -14,12 +14,17 @@
    * the frosted overlay over the app, not an inner card scroller. */
   overflow-x: hidden;
   overflow-y: auto;
+  scrollbar-width: none;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   background: color-mix(in srgb, var(--semantic-color-surface-bg) 72%, transparent);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
   animation: modalBackdropIn 280ms ease;
+}
+
+.backdrop::-webkit-scrollbar {
+  display: none;
 }
 
 .backdropExit {

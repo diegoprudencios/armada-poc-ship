@@ -18,7 +18,7 @@ describe('Step5Confirmation', () => {
         totalCommittedUsdc={4000}
       />,
     )
-    expect(screen.getByText("You're fully committed.")).toBeTruthy()
+    expect(screen.getByText('Already committed')).toBeTruthy()
     expect(screen.getByText(/committed the maximum/i)).toBeTruthy()
     expect(screen.getByText(/\$4,000/)).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Whitelist a friend' })).toBeTruthy()
@@ -27,8 +27,28 @@ describe('Step5Confirmation', () => {
 
   it('uses the first-time copy when not maxed out', () => {
     render(<Step5Confirmation onInvite={vi.fn()} amount={1000} estimatedArm={1000} />)
-    expect(screen.getByText("You're in.")).toBeTruthy()
+    expect(screen.getByText('Commit successful')).toBeTruthy()
     expect(screen.queryByText(/committed the maximum/i)).toBeNull()
+  })
+
+  it('folds the tx hash into the summary table as an explorer link', () => {
+    const txHash = '0x9f2e1d0c…a9988776'
+    render(
+      <Step5Confirmation
+        amount={1000}
+        estimatedArm={1000}
+        txHash={txHash}
+        explorerBaseUrl="https://sepolia.etherscan.io"
+      />,
+    )
+    const link = screen.getByRole('link', { name: /0x9f2e/ })
+    expect(link.getAttribute('href')).toBe(`https://sepolia.etherscan.io/tx/${txHash}`)
+    expect(screen.getByRole('navigation', { name: 'Useful links' })).toBeTruthy()
+  })
+
+  it('omits the tx hash row when no hash is provided', () => {
+    render(<Step5Confirmation amount={1000} estimatedArm={1000} />)
+    expect(screen.queryByText('Tx hash')).toBeNull()
   })
 
   it('promotes View your position and shows Back to crowdfund when canInvite is false', () => {

@@ -40,11 +40,12 @@ import {
 import inlineStyles from './InviteLinkFlowInline.module.css'
 import stepStyles from './InviteLinkFlowStepTransition.module.css'
 import { FooterSocials } from '@/components/FooterSocials'
-import { getHubRpcUrls, getHubChainId, getHubNetworkLabel, getIndexerUrl, getMaxBlockRange, getPollIntervalMs } from '@/config/network'
+import { getHubRpcUrls, getHubChainId, getHubNetworkLabel, getExplorerUrl, getIndexerUrl, getMaxBlockRange, getPollIntervalMs } from '@/config/network'
 import { loadDeployment } from '@/config/deployments'
 import type { CrowdfundDeployment } from '@/config/deployments'
 import type { InviteLinkData } from '@/lib/inviteLinks'
 import { resolveSigner, describeSignerError } from '@/lib/resolveSigner'
+import { commitTxHashFromRows } from '@/lib/commitTxHash'
 import { isMobileBrowser } from '@/lib/isMobileBrowser'
 import { submitTxViaWagmi } from '@/lib/mobileTxSubmit'
 import { countFreeInviteSlots, hasFreeInviteSlot } from '@/lib/inviteSlots'
@@ -525,6 +526,8 @@ export function InviteLinkFlowController({ inviteData }: InviteLinkFlowControlle
           }
           totalCommittedUsdc={maxedOut ? usdcToNumber(existingCommittedUsdc) : undefined}
           maxedOut={maxedOut}
+          txHash={maxedOut ? undefined : commitTxHashFromRows(pipeline.state.rows)}
+          explorerBaseUrl={getExplorerUrl()}
           showViewPositionButton
           canInvite={hasFreeInviteSlot(inviteSlots.sections)}
           onViewPosition={() => navigate('/?view=myposition')}
@@ -777,6 +780,7 @@ export function InviteLinkFlowController({ inviteData }: InviteLinkFlowControlle
         return (
           <ParticipateFlowInviteSlots
             sections={inviteSlots.sections}
+            selfWalletAddress={lowerAddress ?? undefined}
             onDoItLater={() => navigate('/?view=myposition')}
             socials={<FooterSocials />}
           />

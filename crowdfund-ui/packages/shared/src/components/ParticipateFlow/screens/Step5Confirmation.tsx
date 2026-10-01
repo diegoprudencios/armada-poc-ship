@@ -1,14 +1,14 @@
-// ABOUTME: Final confirmation screen — hero check, summary rows, useful links, and the "what happens next" FAQ.
-// ABOUTME: Ported from the armada-crowdfund mockup (FlowChrome close-only header replaces the Steps bar); POC props (maxedOut / isAdditionalCommit / invite CTAs) preserved.
+// ABOUTME: Final confirmation screen — pinned check + title chrome, one summary table (amount, ARM, tx hash), useful links, FAQ.
+// ABOUTME: Ported from the armada-crowdfund demo; POC props (maxedOut / isAdditionalCommit / invite CTAs) preserved, tx hash comes from the live commit.
 
-import { Fragment, type SVGProps } from 'react'
-import { ChatBubbleLeftRightIcon, NewspaperIcon } from '@heroicons/react/24/outline'
+import { Fragment } from 'react'
 import { CheckCircleIcon } from '@heroicons/react/24/solid'
 import { Button } from '@armada/ui'
 import styles from './Step5Confirmation.module.css'
 import { FlowChrome } from '../FlowChrome'
 import type { ParticipateStepBarProps } from '../participateFlowSteps'
 import { WhatHappensNextSlider } from './WhatHappensNextSlider'
+import { UsefulLinks } from '../../UsefulLinks/UsefulLinks'
 
 export interface Step5ConfirmationProps extends ParticipateStepBarProps {
   /** When false (e.g. Hop-2 with no invite capacity), hide Invite and promote View position. */
@@ -29,6 +29,10 @@ export interface Step5ConfirmationProps extends ParticipateStepBarProps {
   /** User was already at their maximum on entry — they didn't commit anything
    *  this visit. Swaps in "already fully committed" copy (no amount added). */
   maxedOut?: boolean
+  /** Commit tx hash shown in the summary table. Row is hidden when omitted. */
+  txHash?: string
+  /** Block-explorer base URL (no trailing slash). Hash renders as plain text when omitted. */
+  explorerBaseUrl?: string
   /** Commit-window countdown — forwarded to What happens next. */
   daysLeft?: number
   secondsLeft?: number
@@ -37,46 +41,6 @@ export interface Step5ConfirmationProps extends ParticipateStepBarProps {
 
 type SummaryRow = { label: string; value: string; accent?: boolean }
 
-function DiscordIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
-      <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
-    </svg>
-  )
-}
-
-function XIcon(props: SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
-      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.227-8.451L1.5 2.25h7.08l4.263 5.671L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z" />
-    </svg>
-  )
-}
-
-const RESOURCE_LINKS = [
-  {
-    label: 'Governance',
-    // TODO: replace when the governance forum URL is ready.
-    href: 'https://docs.armada.blue/',
-    Icon: ChatBubbleLeftRightIcon,
-  },
-  {
-    label: 'Twitter',
-    href: 'https://x.com/ship_armada',
-    Icon: XIcon,
-  },
-  {
-    label: 'Blog',
-    href: 'https://armada.ghost.io',
-    Icon: NewspaperIcon,
-  },
-  {
-    label: 'Discord',
-    href: 'https://discord.gg/eyD58prEV',
-    Icon: DiscordIcon,
-  },
-] as const
-
 function formatUsd(value: number) {
   return value.toLocaleString('en-US', {
     style: 'currency',
@@ -84,6 +48,11 @@ function formatUsd(value: number) {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   })
+}
+
+function truncateMiddle(value: string, head = 6, tail = 4): string {
+  if (value.length <= head + tail + 1) return value
+  return `${value.slice(0, head)}…${value.slice(-tail)}`
 }
 
 function summaryRows(opts: {
@@ -128,6 +97,8 @@ export default function Step5Confirmation({
   isAdditionalCommit = false,
   totalCommittedUsdc,
   maxedOut = false,
+  txHash,
+  explorerBaseUrl,
   daysLeft = 3,
   secondsLeft,
   endsAt = null,
@@ -140,12 +111,19 @@ export default function Step5Confirmation({
   // shortcut, where spending a free invite slot is the only way forward.
   const showInvite = canInvite && Boolean(onInvite)
   const shouldShowViewPosition = Boolean(onViewPosition)
+  const showTxHash = !maxedOut && Boolean(txHash)
 
   const headline = maxedOut
-    ? "You're fully committed."
+    ? 'Already committed'
     : isAdditionalCommit
-      ? 'Commitment updated.'
-      : "You're in."
+      ? 'Commit updated'
+      : 'Commit successful'
+
+  const subline = maxedOut
+    ? 'You’re already fully committed for this hop. Below, find useful information for the next steps.'
+    : isAdditionalCommit
+      ? 'Welcome back, sailor. Below, find useful information for the next steps.'
+      : 'Welcome on board, sailor. Below, find useful information for the next steps.'
 
   const rows = summaryRows({
     maxedOut,
@@ -158,15 +136,24 @@ export default function Step5Confirmation({
   return (
     <div className={styles.shell} data-flow-shell>
       <div className={styles.chromeRow}>
-        <FlowChrome showBack={false} onClose={onClose ?? onBackToCrowdfund} />
+        <FlowChrome
+          showBack={false}
+          titleAlign="start"
+          titleId="step5-title"
+          title={
+            <>
+              <CheckCircleIcon className={styles.checkIcon} aria-hidden />
+              {headline}
+            </>
+          }
+          onClose={onClose ?? onBackToCrowdfund}
+          closeAriaLabel="Close participate flow"
+        />
       </div>
 
       <div className={styles.contentWrap}>
         <div className={styles.content}>
-          <div className={styles.heroBlock}>
-            <CheckCircleIcon className={styles.checkIcon} aria-hidden />
-            <h1 className={styles.headline}>{headline}</h1>
-          </div>
+          <p className={styles.subline}>{subline}</p>
 
           <div className={styles.summaryCard}>
             {rows.map((row, i) => (
@@ -180,30 +167,33 @@ export default function Step5Confirmation({
                 </div>
               </Fragment>
             ))}
+            {showTxHash ? (
+              <>
+                <div className={styles.divider} aria-hidden />
+                <div className={styles.summaryRow}>
+                  <span className={styles.summaryLabel}>Tx hash</span>
+                  {explorerBaseUrl ? (
+                    <a
+                      className={styles.summaryValueLink}
+                      href={`${explorerBaseUrl}/tx/${txHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={txHash}
+                    >
+                      {truncateMiddle(txHash!)}
+                      <span className={styles.visuallyHidden}> (opens in a new tab)</span>
+                    </a>
+                  ) : (
+                    <span className={styles.summaryValue} title={txHash}>
+                      {truncateMiddle(txHash!)}
+                    </span>
+                  )}
+                </div>
+              </>
+            ) : null}
           </div>
 
-          <nav className={styles.resourceNav} aria-label="Useful links">
-            <ul className={styles.iconLinkList}>
-              {RESOURCE_LINKS.map(({ label, href, Icon }) => (
-                <li key={href} className={styles.iconLinkItem}>
-                  <a
-                    className={styles.iconLink}
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <span className={styles.iconTile}>
-                      <Icon className={styles.brandIcon} aria-hidden />
-                      <span className={styles.iconLabel}>
-                        {label}
-                        <span className={styles.visuallyHidden}> (opens in a new tab)</span>
-                      </span>
-                    </span>
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </nav>
+          <UsefulLinks headingId="step5-useful-links" />
 
           <WhatHappensNextSlider daysLeft={daysLeft} secondsLeft={secondsLeft} endsAt={endsAt} />
         </div>

@@ -9,6 +9,34 @@
   flex-shrink: 0;
 }
 
+/* Keeps a sticky buffer under the title so scrolled content doesn’t clip flush. */
+.barWithTitle {
+  padding-bottom: var(--primitives-spacing-6);
+}
+
+.overlay {
+  position: absolute;
+  inset: var(--primitives-spacing-8) var(--primitives-spacing-8) auto;
+  z-index: 2;
+  pointer-events: none;
+  height: var(--primitives-spacing-8);
+}
+
+.overlayBack,
+.overlayClose {
+  pointer-events: auto;
+  position: absolute;
+  top: 0;
+}
+
+.overlayBack {
+  left: 0;
+}
+
+.overlayClose {
+  right: 0;
+}
+
 .iconBtn {
   flex-shrink: 0;
   display: inline-flex;
@@ -63,4 +91,15 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Left-aligned title (no back): title | close */
+.barTitleStart {
+  grid-template-columns: minmax(0, 1fr) var(--primitives-spacing-8);
+}
+
+.titleStart {
+  justify-content: flex-start;
+  text-align: left;
+  justify-self: start;
 }

@@ -36,7 +36,7 @@
   gap: var(--primitives-spacing-5);
   flex: 1;
   min-height: 0;
-  padding-top: var(--primitives-spacing-6);
+  padding-top: 0;
 }
 
 /* ── Summary card ── */

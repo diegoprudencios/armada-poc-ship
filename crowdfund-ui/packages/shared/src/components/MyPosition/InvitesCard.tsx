@@ -576,6 +576,7 @@ export function InvitesCard({
             onRevoke={onRevoke}
             onConfirmCreated={onConfirmCreated}
             onDiscardCreated={onDiscardCreated}
+            selfWalletAddress={selfWalletAddress}
             copiedInviteId={copiedSlotId}
             resolveEns={resolveEns}
             list={hopBody}

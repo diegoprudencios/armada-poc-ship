@@ -39,6 +39,7 @@ export function PageNav({
         label: item.label,
         active: !disabled && id === current,
         disabled,
+        accent: id === 'claim' && !disabled ? ('brand' as const) : undefined,
         onClick: disabled ? undefined : () => onChange(id),
       }
     })

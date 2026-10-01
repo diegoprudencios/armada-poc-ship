@@ -229,7 +229,7 @@ describe('ParticipateFlowV2 fully-committed shortcut', () => {
     }
     rerender(<ParticipateFlowV2 {...makeProps()} eventsLoading={false} positions={[fullPosition]} />)
 
-    expect(await screen.findByText("You're fully committed.")).toBeTruthy()
+    expect(await screen.findByText('Already committed')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Whitelist a friend' })).toBeTruthy()
     // No amount input — we skipped the commit/input step entirely.
     expect(screen.queryByRole('textbox')).toBeNull()

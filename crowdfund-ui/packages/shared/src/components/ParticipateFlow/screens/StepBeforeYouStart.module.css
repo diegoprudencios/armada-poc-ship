@@ -7,8 +7,7 @@
   background: var(--semantic-color-surface-default);
   border: 1px solid var(--semantic-color-border-default);
   border-radius: calc(var(--semantic-borderRadius-modal) * 1px);
-  /* Vertical only — horizontal padding lives on chrome / scroll content so
-     overlay scrollbars sit in the gutter instead of over the cards. */
+  /* Vertical only — horizontal padding lives on chrome / scroll content. */
   padding: var(--primitives-spacing-8) 0;
   display: flex;
   flex-direction: column;
@@ -19,7 +18,6 @@
 .chromeRow {
   flex-shrink: 0;
   padding-inline: var(--primitives-spacing-8);
-  margin-bottom: var(--primitives-spacing-4);
 }
 
 .contentWrap {
@@ -37,8 +35,13 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  scrollbar-width: none;
   padding-inline: var(--primitives-spacing-8);
   padding-bottom: var(--primitives-spacing-8);
+}
+
+.content::-webkit-scrollbar {
+  display: none;
 }
 
 .contentFade {
@@ -53,34 +56,6 @@
     transparent,
     var(--semantic-color-surface-default)
   );
-}
-
-.header {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--primitives-spacing-2);
-  text-align: center;
-  flex-shrink: 0;
-}
-
-.eyebrow {
-  margin: 0;
-  font-family: var(--primitives-fontFamily-ui), sans-serif;
-  font-size: calc(var(--primitives-fontSize-xs) * 1px);
-  font-weight: var(--primitives-fontWeight-medium);
-  letter-spacing: var(--primitives-letterSpacing-widest);
-  text-transform: uppercase;
-  color: var(--semantic-color-text-muted);
-}
-
-.title {
-  margin: 0;
-  font-family: var(--primitives-fontFamily-ui), sans-serif;
-  font-size: calc(var(--primitives-fontSize-xl) * 1px);
-  font-weight: var(--primitives-fontWeight-medium);
-  color: var(--semantic-color-text-primary);
-  line-height: 1.4;
 }
 
 .factsCard {

@@ -34,11 +34,12 @@ import {
   type HopVariant,
 } from '@armada/crowdfund-shared'
 import { FooterSocials } from '@/components/FooterSocials'
-import { getHubNetworkLabel } from '@/config/network'
+import { getHubNetworkLabel, getExplorerUrl } from '@/config/network'
 import { resolveSigner, describeSignerError } from '@/lib/resolveSigner'
 import { isMobileBrowser } from '@/lib/isMobileBrowser'
 import { submitTxViaWagmi } from '@/lib/mobileTxSubmit'
 import { countFreeInviteSlots, hasFreeInviteSlot } from '@/lib/inviteSlots'
+import { commitTxHashFromRows } from '@/lib/commitTxHash'
 import { useTxPipeline, type TxStep } from '@/hooks/useTxPipeline'
 import { useSelfFill } from '@/hooks/useSelfFill'
 import { useResetPipelineOnClose } from '@/hooks/useResetPipelineOnClose'
@@ -477,6 +478,12 @@ export function ParticipateFlowV2({
               : initialCommittedTotal + totalNewAmountUsd)
           }
           maxedOut={snap?.maxedOut ?? (isFullyCommitted && !inMax)}
+          txHash={
+            (snap?.maxedOut ?? (isFullyCommitted && !inMax))
+              ? undefined
+              : commitTxHashFromRows(pipeline.state.rows)
+          }
+          explorerBaseUrl={getExplorerUrl()}
         />
       </div>
     )
@@ -880,6 +887,7 @@ export function ParticipateFlowV2({
       return (
         <ParticipateFlowInviteSlots
           sections={inviteSlotSections}
+          selfWalletAddress={walletAddress ?? undefined}
           onDoItLater={onGoToMyPosition}
           socials={<FooterSocials />}
         />
